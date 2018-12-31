@@ -1,0 +1,21 @@
+{
+	"compilerOptions": {
+		"outDir": "./dist/",
+		"inlineSourceMap": true,
+		"inlineSources": true,
+		"module": "commonjs",
+		"target": "esnext",
+		"removeComments": false,
+		"preserveConstEnums": true,
+		"allowJs": true,
+		"checkJs": true,
+		"watch": true,
+		"experimentalDecorators": true,
+		"emitDecoratorMetadata": true
+	},
+	"jsdoc": "docs",
+	"compileOnSave": true,
+	"include": [
+		"./lib/**/*.ts"
+	]
+}

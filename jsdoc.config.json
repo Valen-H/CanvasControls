@@ -1,0 +1,24 @@
+{
+	"plugins": [ "plugins/markdown", "plugins/summarize" ],
+	"recurseDepth": 5,
+	"source": {
+		"includePattern": ".+\\.(t|j)s(doc|x)?$",
+		"excludePattern": "(^|\\/|\\\\)_"
+	},
+	"sourceType": "module",
+	"tags": {
+		"allowUnknownTags": true,
+		"dictionaries": [ "jsdoc", "closure" ]
+	},
+	"templates": {
+		"cleverLinks": true,
+		"monospaceLinks": true
+	},
+	"opts": {
+		"template": "templates/default",
+		"encoding": "utf8",
+		"destination": "./docs/",
+		"tutorials": "./man",
+		"out": "docs"
+	}
+}

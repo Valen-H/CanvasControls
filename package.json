@@ -1,0 +1,41 @@
+{
+  "name": "canvas-controls",
+  "version": "0.0.0",
+  "description": "A web module that adds controls to the <canvas> object",
+  "main": "canvascontrols.js",
+  "author": "V. H.",
+  "scripts": {
+    "test": "node test/index.js",
+    "start": "npx babel node_modules/@babel/polyfill/dist/polyfill.min.js -d dist/ --copy-files & npx babel dist/CanvasControls.js -d dist/babel -w",
+    "xpack": "npx webpack",
+    "xtsc": "tsc -w",
+    "xpose": "showdown makehtml -i README.md -o readme.htm",
+    "jsdoc": "npm run xpose && npx jsdoc dist/ -c jsdoc.config.json -R readme.htm"
+  },
+  "keywords": [
+    "canvas",
+    "2d",
+    "web",
+    "controls"
+  ],
+  "license": "ISC",
+  "dependencies": {
+    "@babel/polyfill": "^7.2.5"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.2.3",
+    "@babel/core": "^7.2.2",
+    "@babel/preset-env": "^7.2.3",
+    "@babel/preset-typescript": "^7.1.0",
+    "awesome-typescript-loader": "^5.2.1",
+    "babel-preset-minify": "^0.5.0",
+    "source-map-loader": "^0.2.4",
+    "typescript": "^3.2.2",
+    "webpack": "^4.28.3",
+    "webpack-cli": "^3.1.2"
+  },
+  "optionalDependencies": {
+    "jsdoc": "^3.5.5",
+    "showdown": "^1.9.0"
+  }
+}
