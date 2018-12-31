@@ -1,0 +1,9 @@
+{
+  "name": "canvas-controls",
+  "version": "0.0.0",
+  "description": "CanvasControls",
+  "main": "server.js",
+  "author": {
+    "name": ""
+  }
+}
