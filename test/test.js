@@ -1,7 +1,10 @@
 ﻿var cc;
 
 window.onload = function load() {
-	cc = new CanvasControls.CanvasControls.ControllableCanvas();
+	cc = new CanvasControls.CanvasControls.ControllableCanvas({
+		dragEnabled: true,
+		wheelEnabled: true
+	});
 	cc.target.width = innerWidth;
 	cc.target.height = innerHeight;
 	cc.handle();
@@ -19,8 +22,12 @@ function frame() {
 	cc.retransform();
 	cc.context.fillRect(50, 50, 30, 30);
 	cc.context.fillRect(200, 110, 50, 60);
+	cc.context.fillRect(0, 0, 5, 5);
+	cc.context.fillStyle = "rgba(250,5,5,.5)";
 	cc.context.beginPath();
-	cc.context.arc(...cc._coordinates.map((crd, idx) => crd - cc.trans[idx]), 5, 0, Math.PI * 2);
+	cc.context.arc(...cc._coordinates.map((crd, idx) => (crd - cc.trans[idx]) / cc.scl[idx] ), 5, 0, Math.PI * 2);
 	cc.context.fill();
+	cc.context.closePath();
+	cc.context.fillStyle = "black";
 	requestAnimationFrame(frame);
 } //frame

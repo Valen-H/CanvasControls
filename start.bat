@@ -1,0 +1,5 @@
+start cmd.exe /k "mode con: lines=30 cols=70 & npm run xtsc"
+start cmd.exe /k "mode con: lines=30 cols=70 & npm start"
+start cmd.exe /k "mode con: lines=30 cols=70 & npm run xpack"
+start cmd.exe /k "mode con: lines=30 cols=70 & npm run jsdoc"
+start cmd.exe /k "mode con: lines=30 cols=70 & npm test"
