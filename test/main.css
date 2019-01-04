@@ -6,6 +6,8 @@
 	height: 100%;
 	background-color: gray;
 	box-sizing: border-box;
+	user-select: none;
+	touch-callout: none;
 }
 
 body {

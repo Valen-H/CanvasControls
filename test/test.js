@@ -3,7 +3,9 @@
 window.onload = function load() {
 	cc = new CanvasControls.CanvasControls.ControllableCanvas({
 		dragEnabled: true,
-		wheelEnabled: true
+		wheelEnabled: true,
+		pinchEnabled: true,
+		useRight: 3
 	});
 	cc.target.width = innerWidth;
 	cc.target.height = innerHeight;
@@ -15,6 +17,11 @@ window.onload = function load() {
 	}
 	frame();
 };
+
+function reset() {
+	cc.scale(1, 1, true);
+	cc.translate(0, 0, true);
+} //reset
 
 function frame() {
 	cc.context.setTransform(1, 0, 0, 1, 0, 0);
