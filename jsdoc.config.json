@@ -1,9 +1,9 @@
 {
 	"plugins": [ "plugins/markdown", "plugins/summarize" ],
-	"recurseDepth": 5,
+	"recurseDepth": 1,
 	"source": {
 		"includePattern": ".+\\.(t|j)s(doc|x)?$",
-		"excludePattern": "((^|\\/|\\\\)_|\\.bundle\\.)"
+		"excludePattern": "((^|\\/|\\\\)_|\\.bundle\\.|babel\\/)"
 	},
 	"sourceType": "module",
 	"tags": {

@@ -17,6 +17,8 @@ import "@babel/polyfill";
  */
 export module CanvasControls {
 
+	type Class = { new(...args: any[]): any; };
+
 	/**
 	 * If `dest` lacks a property that `targ` has then that property is copied into `dest`
 	 * @function
@@ -60,6 +62,19 @@ export module CanvasControls {
 	} //dist
 
 	/**
+	 * Checks if pointer is inside an area
+	 * @param {number[]} box - x,y,dx,dy
+	 * @param {number[]} point - x,y
+	 * @param {number} sensitivity - extra boundary
+	 * @returns boolean
+	 * @inner
+	 * @function
+	 */
+	function isWithin(box: number[], point: number[], sensitivity: number = .5): boolean {
+		return box[0] - sensitivity <= point[0] && box[0] + box[2] + sensitivity >= point[0] && box[1] - sensitivity <= point[1] && box[1] + box[3] + sensitivity >= point[1];
+	} //isWithin
+
+	/**
 	 * A holder for all Options
 	 * @namespace
 	 */
@@ -69,23 +84,24 @@ export module CanvasControls {
 		 * A wrapper for the targeted canvas element
 		 * @interface
 		 * @inner
-		 * @prop {HTMLCanvasElement} target=firstCanvOccurInDoc - Bound canvas
-		 * @prop {number[]} trans=0,0 - Translation
-		 * @prop {number[]} scl=1,1 - Scaling
-		 * @prop {number[]} rot=0,0 - Rotation
-		 * @prop {number[]} pin?=this.target.width/2,this.target.height/2 - Pseudo-center
-		 * @prop {number[]} transBound=-Infinity,-Infinity,Infinity,Infinity - Max translation boundaries
-		 * @prop {boolean} dragEnabled=false - Enable translation on drag
-		 * @prop {boolean} pinchEnabled=false - Enable scaling on 2-finger pinch (1 finger only shall move)
-		 * @prop {boolean} pinchSwipeEnabled=false - Enable rotation on 2-finger pinch (both fingers shall move)
-		 * @prop {boolean} wheelEnabled=false - Enable scaling on mouse wheel
-		 * @prop {boolean} panEnabled=false - Enable translation based on mouse/finger distance from pin (pseudo-center)
-		 * @prop {boolean} tiltEnabled=false - Enable translation on device movement
-		 * @prop {boolean} eventsReversed=false - Toggle reverse-operations
-		 * @prop {Opts.UseButton} useButton=Opts.UseButton.USELEFT - Respond to left-click, right or both
-		 * @prop {number} transSpeed=1 - Translation speed factor
-		 * @prop {number} sclSpeed=1 - Scaling speed factor
-		 * @prop {Opts.ControllableCanvasAdapters} _adapts - Map of all currently attached control event adapters
+		 * @member {HTMLCanvasElement} target=firstCanvOccurInDoc - Bound canvas
+		 * @member {number[]} trans=0,0 - Translation
+		 * @member {number[]} scl=1,1 - Scaling
+		 * @member {number[]} rot=0,0 - Rotation
+		 * @member {number[]} pin?=this.target.width/2,this.target.height/2 - Pseudo-center
+		 * @member {number[]} transBound=-Infinity,-Infinity,Infinity,Infinity - Max translation boundaries
+		 * @member {boolean} dragEnabled=false - Enable translation on drag
+		 * @member {boolean} pinchEnabled=false - Enable scaling on 2-finger pinch (1 finger only shall move)
+		 * @member {boolean} pinchSwipeEnabled=false - Enable rotation on 2-finger pinch (both fingers shall move)
+		 * @member {boolean} wheelEnabled=false - Enable scaling on mouse wheel
+		 * @member {boolean} panEnabled=false - Enable translation based on mouse/finger distance from pin (pseudo-center)
+		 * @member {boolean} tiltEnabled=false - Enable translation on device movement
+		 * @member {boolean} eventsReversed=false - Toggle reverse-operations
+		 * @member {Opts.UseButton} useButton=Opts.UseButton.USELEFT - Respond to left-click, right or both
+		 * @member {number} transSpeed=1 - Translation speed factor
+		 * @member {number} sclSpeed=1 - Scaling speed factor
+		 * @member {Opts.ControllableCanvasAdapters} _adapts - Map of all currently attached control event adapters
+		 * @member {Set<CanvasButton>} wgets - Canvas widgets
 		 */
 		export declare interface ControllableCanvasOptions {
 			target: HTMLCanvasElement;
@@ -107,6 +123,7 @@ export module CanvasControls {
 			sclSpeed: number;
 			touchSensitivity: number;
 			_adapts: ControllableCanvasAdapters;
+			wgets: Set<CanvasButton>;
 			[prop: string]: any;
 		} //ControllableCanvasOptions
 
@@ -119,9 +136,9 @@ export module CanvasControls {
 		 *	P: mouse  hold & move
 		 *	M: touch  hold & move
 		 * pinch:
-		 *	touch  2-finger & 1-move
-		 * pinchSwipe:
 		 *	touch  2-finger & 2-move
+		 * pinchSwipe:
+		 *	touch  2-finger & 1-move
 		 * wheel:
 		 *	wheel  move  [pc pinch-equivalent]
 		 * pan:
@@ -142,6 +159,26 @@ export module CanvasControls {
 			[prop: string]: any;
 		} //ControllableCanvasAdapters
 
+		/**
+		 * Options of ControllableCanvas.CanvasButton
+		 * @interface
+		 * @inner
+		 * @member {number} x - x coordinate
+		 * @member {number} y - y coordinate
+		 * @member {number} dx - widget width
+		 * @member {number} dy - widget height
+		 * @member {number} index - widget event priority
+		 */
+		export declare interface CanvasButtonOptions {
+			x: number;
+			y: number;
+			dx: number;
+			dy: number;
+			index: number;
+			parent: ControllableCanvas;
+			[prop: string]: any;
+		} //CanvasButtonOptions
+
 		export enum UseButton {
 			USELEFT = 1, USERIGHT, USEBOTH
 		} //UseButton
@@ -158,6 +195,8 @@ export module CanvasControls {
 		export const ENOTCANV: TypeError = new TypeError("Not an HTMLCanvasElement.");
 		export const ENOTCTX: TypeError = new TypeError("Not a CanvasRenderingContext2D.");
 		export const ENOTNUMARR2: TypeError = new TypeError("Not an Array of 2-at-least Numbers.");
+		export const ENOTNUMARR: TypeError = new TypeError("Not an Array of Numbers.");
+		export const EISALR: ReferenceError = new ReferenceError("Object is already registered.");
 	} //Errors
 
 	
@@ -185,6 +224,8 @@ export module CanvasControls {
 	 * @prop {number} sclSpeed=1 - Scaling speed factor
 	 * @prop {Opts.ControllableCanvasAdapters} _adapts - Map of all currently attached control event adapters
 	 * @prop {object} _touches - Map of all current touches
+	 * @prop {Class} CanvasButton - A widget-making class for canvas
+	 * @prop {Set<CanvasButton>} wgets - Canvas widgets
 	 */
 	export class ControllableCanvas implements Opts.ControllableCanvasOptions {
 		target: HTMLCanvasElement;
@@ -207,12 +248,14 @@ export module CanvasControls {
 		transSpeed: number = 1;
 		sclSpeed: number = 1;
 		touchSensitivity: number = .5;
+		wgets: Set<CanvasButton>;
 		private _handled: boolean = false;
 		private _mobile: boolean = false;
 		private _pressed: boolean = false;
 		_adapts: Opts.ControllableCanvasAdapters;
 		private _coordinates: number[] = [ ];
 		private _touches: number[][] = [ ];
+		static CanvasButton: Class;
 
 		private static _linepix: number = 10;
 		/**
@@ -246,7 +289,8 @@ export module CanvasControls {
 				wheel: false,
 				pan: false,
 				tilt: false
-			}
+			},
+			wgets: new Set()
 		};
 
 		/**
@@ -284,6 +328,8 @@ export module CanvasControls {
 			this.useButton = opts.useButton | 0;
 			this.scaleMode = opts.scaleMode | 0;
 
+			this.wgets = new Set(opts.wgets);
+
 			this.trans = Array.from(opts.trans).map(Number);
 			this.scl = Array.from(opts.scl).map(Number);
 			this.pin = Array.from(opts.pin).map(Number);
@@ -320,6 +366,7 @@ export module CanvasControls {
 
 		/**
 		 * Enable controls, call only once
+		 * @method
 		 * @param {boolean} force?=false - Force handle
 		 * @returns {boolean} bound? - whether bind suceeded or it was already bound earlier
 		 */
@@ -331,9 +378,22 @@ export module CanvasControls {
 			return false;
 		} //handle
 
+		addWidget(data: CanvasButton | Opts.CanvasButtonOptions): CanvasButton {
+			if (data instanceof CanvasButton && !this.wgets.has(data)) {
+				this.wgets.add(<CanvasButton>data);
+			} else if (!(data instanceof CanvasButton)) {
+				data = new ControllableCanvas.CanvasButton(<Opts.CanvasButtonOptions>data);
+				this.wgets.add(<CanvasButton>data);
+			} else {
+				throw Errors.EISALR;
+			}
+			return <CanvasButton>data;
+		} //addWidget
+
 
 		/**
 		 * Re-apply internal transformations
+		 * @method
 		 * @returns {ControllableCanvas} this - For method chaining
 		 */
 		retransform(): ThisType<ControllableCanvas> {
@@ -346,6 +406,7 @@ export module CanvasControls {
 
 		/**
 		 * Intermediate translation function for iconic translate before the real
+		 * @method
 		 * @param {number} x=0 - x translation
 		 * @param {number} y=0 - y translation
 		 * @param {boolean} abs?=false - abslute translation or relative to current
@@ -357,6 +418,7 @@ export module CanvasControls {
 		} //translate
 		/**
 		 * Intermediate scaling function for iconic scale before the real
+		 * @method
 		 * @param {number} x=1 - x scale
 		 * @param {number} y=x - y scale
 		 * @param {boolean} abs?=false - abslute scale or relative to current
@@ -478,6 +540,7 @@ export module CanvasControls {
 			if (!cust) {
 				Array.from(event.changedTouches).forEach((t: Touch) => cc._touches[t.identifier] = [t.clientX - cc.target.offsetLeft, t.clientY - cc.target.offsetTop]);
 			}
+			cc._pressed = true;
 			cc._coordinates = cc._touches[cc._touches.length - 1];
 		} //dragMobileStart
 		static dragMobileEnd(event: TouchEvent, cc: ControllableCanvas): void {
@@ -488,6 +551,7 @@ export module CanvasControls {
 			if (Object.keys(cc._touches).length == 1) {
 				ControllableCanvas.dragMobileStart(event, cc, true);
 			}
+			cc._pressed = !!cc._touches.length;
 		} //dragMobileEnd
 
 		static wheel(event: WheelEvent, cc: ControllableCanvas): void {
@@ -537,6 +601,147 @@ export module CanvasControls {
 		} //fixDelta
 		
 	} //ControllableCanvas
+
+	/**
+	 * A widget-making class for canvas
+	 * @memberof ControllableCanvas
+	 * @prop {number} x - x coordinate
+	 * @prop {number} y - y coordinate
+	 * @prop {number} dx - width
+	 * @prop {number} dy - height
+	 * @prop {number} index - equivalent to CSS z-index
+	 */
+	class CanvasButton implements Opts.CanvasButtonOptions {
+		x: number = 0;
+		y: number = 0;
+		dx: number = 0;
+		dy: number = 0;
+		index: number = -1;
+		parent: ControllableCanvas;
+		private pstate: boolean = false;
+		private _id: number;
+
+		private static sensitivity: number = .5;
+		private static _idcntr: number = 0;
+		/**
+		 * Default options for CanvasButton
+		 * @readonly
+		 * @static
+		 */
+		private static defaultOpts: Opts.CanvasButtonOptions = {
+			x: 0,
+			y: 0,
+			dx: 0,
+			dy: 0,
+			index: -1,
+			pstate: false,
+			parent: new ControllableCanvas
+		};
+
+		constructor(opts: Opts.CanvasButtonOptions = CanvasButton.defaultOpts) {  //DOUBLECLICK, LONGCLICK, DRAG, ... USER-IMPLEMENTED(?)
+			inherit(opts, CanvasButton.defaultOpts);
+
+			if ([opts.x, opts.y, opts.dx, opts.dy].some((num: any) => isNaN(num) || num === '')) {
+				throw Errors.ENOTNUMARR;
+			}
+
+			this.x = opts.x * 1;
+			this.y = opts.y * 1;
+			this.dx = opts.dx * 1;
+			this.dy = opts.dy * 1;
+			this._id = CanvasButton._idcntr++;
+		} //ctor
+
+		//@Override
+		blur(...any: any[]) {
+
+		} //blur
+		//@Override
+		focus(...any: any[]) {
+
+		} //focus
+		//@Override
+		click() {
+
+		} //click
+
+		isOn(relativeCoords: number[]): boolean {
+			let out: boolean = isWithin([this.x, this.y, this.dx, this.dy], [relativeCoords[0], relativeCoords[1]]);
+
+			if (out && !this.pstate) {
+				this.focus(relativeCoords);
+			} else if (!out && this.pstate) {
+				this.blur(relativeCoords);
+			}
+
+			return out;
+		} //isOn
+	}
+
+	ControllableCanvas.CanvasButton = CanvasButton;
+
+	/**
+	 * A class offering mathematical Vector utilities
+	 * @inner
+	 * @class
+	 * @prop {number[]} props - vector vertices
+	 */
+	export class Vector {
+		props: number[];
+
+		constructor(props: number[] = [ ]) {
+			this.props = Array.from(props.map(Number));
+		} //ctor
+
+		/**
+		 * Add a vector or number to current vector
+		 * @method
+		 * @param {Vector|number} targ - target
+		 * @param {number} sub - Set to `-1` to substract instead
+		 * @returns `this` for method chaining
+		 */
+		add(targ: Vector | number, sub: number = 1): ThisType<Vector> {
+			if (targ instanceof Vector) {
+				this.props.forEach((prop: number, idx: number) => {
+					this.props[idx] += sub * targ[idx];
+				});
+			} else {
+				this.props.forEach((prop: number, idx: number) => {
+					this.props[idx] += sub * targ;
+				});
+			}
+			return this;
+		} //add
+		/**
+		 * Multiply a vector or number to current vector
+		 * @method
+		 * @param {Vector|number} targ - target
+		 * @param {number} div - Set to `-1` to divide instead
+		 * @returns `this` for method chaining
+		 */
+		mult(targ: Vector | number, div: number = 1): ThisType<Vector> {
+			if (targ instanceof Vector) {
+				this.props.forEach((prop: number, idx: number) => {
+					this.props[idx] *= Math.pow(targ[idx], div);
+				});
+			} else {
+				this.props.forEach((prop: number, idx: number) => {
+					this.props[idx] *= Math.pow(targ, div);
+				});
+			}
+			return this;
+		} //mult
+		/**
+		 * Dot product of 2 vectors
+		 * @method
+		 * @param {Vector} targ - target
+		 * @returns product
+		 */
+		dot(targ: Vector): number {
+			return this.props.reduce((acc: number, val: number, idx: number) => acc + val * targ[idx]);
+		} //dot
+
+	} //Vector
 
 } //CanvasControls
 

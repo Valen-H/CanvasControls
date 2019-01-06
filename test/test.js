@@ -1,22 +1,28 @@
 ﻿var cc;
 
 window.onload = function load() {
+	if (CanvasControls.CanvasControls.ControllableCanvas.isMobile) {
+		window.onerror = function error(e) {
+			alert(e);
+		};
+	}
 	cc = new CanvasControls.CanvasControls.ControllableCanvas({
 		dragEnabled: true,
 		wheelEnabled: true,
 		pinchEnabled: true,
 		useRight: 3
 	});
-	cc.target.width = innerWidth;
-	cc.target.height = innerHeight;
 	cc.handle();
-	if (cc._mobile) {
-		window.onerror = function error(e) {
-			alert(e);
-		};
-	}
+	resize();
 	frame();
 };
+
+function resize() {
+	cc.target.width = innerWidth;
+	cc.target.height = innerHeight;
+} //resize
+
+window.onresize = resize.bind(window);
 
 function reset() {
 	cc.scale(1, 1, true);

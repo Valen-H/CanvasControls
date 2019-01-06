@@ -8,7 +8,7 @@
     "test": "node test/index.js",
     "start": "npx babel dist/ -d dist/babel -w --ignore dist/CanvasControls.bundle.js,dist/polyfill.min.js,dist/babel",
     "xpack": "npx webpack",
-    "xtsc": "tsc -w -d",
+    "xtsc": "npx tsc -w -d",
     "xpose": "showdown makehtml -i README.md -o readme.htm",
     "jsdoc": "npm run xpose && npx jsdoc dist/ -c jsdoc.config.json -R readme.htm"
   },

@@ -15,3 +15,10 @@ cc.handle();  //attach handles, can only be called once, to attach handles after
  * Voila! Try dragging the canvas!! You can add drag bounds by setting the transBounds[x, y, X, Y] array
  */
 ```  
+> Note: In your projects you should use the heavy but minified `dist/CanvasControls.bundle.js` which is packed with polyfills of the raw but not minified `dist/babel/CanvasControls.js`  
+  
+## Features  
+* Scrolling - click 'n' drag  
+* Zooming - mouse wheel, 2-finger pinch  
+* Rotating - other mouse button / 2-finger pinch with one as a pole  
+* Clickable buttons/widgets  

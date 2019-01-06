@@ -91,6 +91,22 @@ var CanvasControls;
   } //dist
 
   /**
+   * Checks if pointer is inside an area
+   * @param {number[]} box - x,y,dx,dy
+   * @param {number[]} point - x,y
+   * @param {number} sensitivity - extra boundary
+   * @returns boolean
+   * @inner
+   * @function
+   */
+
+
+  function isWithin(box, point) {
+    var sensitivity = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : .5;
+    return box[0] - sensitivity <= point[0] && box[0] + box[2] + sensitivity >= point[0] && box[1] - sensitivity <= point[1] && box[1] + box[3] + sensitivity >= point[1];
+  } //isWithin
+
+  /**
    * A holder for all Options
    * @namespace
    */
@@ -130,6 +146,8 @@ var CanvasControls;
     Errors.ENOTCANV = new TypeError("Not an HTMLCanvasElement.");
     Errors.ENOTCTX = new TypeError("Not a CanvasRenderingContext2D.");
     Errors.ENOTNUMARR2 = new TypeError("Not an Array of 2-at-least Numbers.");
+    Errors.ENOTNUMARR = new TypeError("Not an Array of Numbers.");
+    Errors.EISALR = new ReferenceError("Object is already registered.");
   })(Errors = CanvasControls.Errors || (CanvasControls.Errors = {})); //Errors
 
   /**
@@ -156,6 +174,8 @@ var CanvasControls;
    * @prop {number} sclSpeed=1 - Scaling speed factor
    * @prop {Opts.ControllableCanvasAdapters} _adapts - Map of all currently attached control event adapters
    * @prop {object} _touches - Map of all current touches
+   * @prop {Class} CanvasButton - A widget-making class for canvas
+   * @prop {Set<CanvasButton>} wgets - Canvas widgets
    */
 
 
@@ -228,6 +248,7 @@ var CanvasControls;
       this.touchSensitivity = opts.touchSensitivity * 1;
       this.useButton = opts.useButton | 0;
       this.scaleMode = opts.scaleMode | 0;
+      this.wgets = new Set(opts.wgets);
       this.trans = Array.from(opts.trans).map(Number);
       this.scl = Array.from(opts.scl).map(Number);
       this.pin = Array.from(opts.pin).map(Number);
@@ -257,6 +278,7 @@ var CanvasControls;
 
       /**
        * Enable controls, call only once
+       * @method
        * @param {boolean} force?=false - Force handle
        * @returns {boolean} bound? - whether bind suceeded or it was already bound earlier
        */
@@ -271,8 +293,24 @@ var CanvasControls;
         return false;
       } //handle
 
+    }, {
+      key: "addWidget",
+      value: function addWidget(data) {
+        if (data instanceof CanvasButton && !this.wgets.has(data)) {
+          this.wgets.add(data);
+        } else if (!(data instanceof CanvasButton)) {
+          data = new ControllableCanvas.CanvasButton(data);
+          this.wgets.add(data);
+        } else {
+          throw Errors.EISALR;
+        }
+
+        return data;
+      } //addWidget
+
       /**
        * Re-apply internal transformations
+       * @method
        * @returns {ControllableCanvas} this - For method chaining
        */
 
@@ -288,6 +326,7 @@ var CanvasControls;
 
       /**
        * Intermediate translation function for iconic translate before the real
+       * @method
        * @param {number} x=0 - x translation
        * @param {number} y=0 - y translation
        * @param {boolean} abs?=false - abslute translation or relative to current
@@ -310,6 +349,7 @@ var CanvasControls;
 
       /**
        * Intermediate scaling function for iconic scale before the real
+       * @method
        * @param {number} x=1 - x scale
        * @param {number} y=x - y scale
        * @param {boolean} abs?=false - abslute scale or relative to current
@@ -526,6 +566,7 @@ var CanvasControls;
           });
         }
 
+        cc._pressed = true;
         cc._coordinates = cc._touches[cc._touches.length - 1];
       } //dragMobileStart
 
@@ -540,6 +581,8 @@ var CanvasControls;
         if (Object.keys(cc._touches).length == 1) {
           ControllableCanvas.dragMobileStart(event, cc, true);
         }
+
+        cc._pressed = !!cc._touches.length;
       } //dragMobileEnd
 
     }, {
@@ -633,9 +676,199 @@ var CanvasControls;
       wheel: false,
       pan: false,
       tilt: false
-    }
+    },
+    wgets: new Set()
   };
   CanvasControls.ControllableCanvas = ControllableCanvas;
+  /**
+   * A widget-making class for canvas
+   * @memberof ControllableCanvas
+   * @prop {number} x - x coordinate
+   * @prop {number} y - y coordinate
+   * @prop {number} dx - width
+   * @prop {number} dy - height
+   * @prop {number} index - equivalent to CSS z-index
+   */
+
+  var CanvasButton =
+  /*#__PURE__*/
+  function () {
+    function CanvasButton() {
+      var opts = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : CanvasButton.defaultOpts;
+
+      _classCallCheck(this, CanvasButton);
+
+      this.x = 0;
+      this.y = 0;
+      this.dx = 0;
+      this.dy = 0;
+      this.index = -1;
+      this.pstate = false;
+      inherit(opts, CanvasButton.defaultOpts);
+
+      if ([opts.x, opts.y, opts.dx, opts.dy].some(function (num) {
+        return isNaN(num) || num === '';
+      })) {
+        throw Errors.ENOTNUMARR;
+      }
+
+      this.x = opts.x * 1;
+      this.y = opts.y * 1;
+      this.dx = opts.dx * 1;
+      this.dy = opts.dy * 1;
+      this._id = CanvasButton._idcntr++;
+    } //ctor
+    //@Override
+
+
+    _createClass(CanvasButton, [{
+      key: "blur",
+      value: function blur() {} //blur
+      //@Override
+
+    }, {
+      key: "focus",
+      value: function focus() {} //focus
+      //@Override
+
+    }, {
+      key: "click",
+      value: function click() {} //click
+
+    }, {
+      key: "isOn",
+      value: function isOn(relativeCoords) {
+        var out = isWithin([this.x, this.y, this.dx, this.dy], [relativeCoords[0], relativeCoords[1]]);
+
+        if (out && !this.pstate) {
+          this.focus(relativeCoords);
+        } else if (!out && this.pstate) {
+          this.blur(relativeCoords);
+        }
+
+        return out;
+      } //isOn
+
+    }]);
+
+    return CanvasButton;
+  }();
+
+  CanvasButton.sensitivity = .5;
+  CanvasButton._idcntr = 0;
+  /**
+   * Default options for CanvasButton
+   * @readonly
+   * @static
+   */
+
+  CanvasButton.defaultOpts = {
+    x: 0,
+    y: 0,
+    dx: 0,
+    dy: 0,
+    index: -1,
+    pstate: false,
+    parent: new ControllableCanvas()
+  };
+  ControllableCanvas.CanvasButton = CanvasButton;
+  /**
+   * A class offering mathematical Vector utilities
+   * @inner
+   * @class
+   * @prop {number[]} props - vector vertices
+   */
+
+  var Vector =
+  /*#__PURE__*/
+  function () {
+    function Vector() {
+      var props = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : [];
+
+      _classCallCheck(this, Vector);
+
+      this.props = Array.from(props.map(Number));
+    } //ctor
+
+    /**
+     * Add a vector or number to current vector
+     * @method
+     * @param {Vector|number} targ - target
+     * @param {number} sub - Set to `-1` to substract instead
+     * @returns `this` for method chaining
+     */
+
+
+    _createClass(Vector, [{
+      key: "add",
+      value: function add(targ) {
+        var _this5 = this;
+
+        var sub = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 1;
+
+        if (targ instanceof Vector) {
+          this.props.forEach(function (prop, idx) {
+            _this5.props[idx] += sub * targ[idx];
+          });
+        } else {
+          this.props.forEach(function (prop, idx) {
+            _this5.props[idx] += sub * targ;
+          });
+        }
+
+        return this;
+      } //add
+
+      /**
+       * Multiply a vector or number to current vector
+       * @method
+       * @param {Vector|number} targ - target
+       * @param {number} div - Set to `-1` to divide instead
+       * @returns `this` for method chaining
+       */
+
+    }, {
+      key: "mult",
+      value: function mult(targ) {
+        var _this6 = this;
+
+        var div = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 1;
+
+        if (targ instanceof Vector) {
+          this.props.forEach(function (prop, idx) {
+            _this6.props[idx] *= Math.pow(targ[idx], div);
+          });
+        } else {
+          this.props.forEach(function (prop, idx) {
+            _this6.props[idx] *= Math.pow(targ, div);
+          });
+        }
+
+        return this;
+      } //mult
+
+      /**
+       * Dot product of 2 vectors
+       * @method
+       * @param {Vector} targ - target
+       * @returns product
+       */
+
+    }, {
+      key: "dot",
+      value: function dot(targ) {
+        return this.props.reduce(function (acc, val, idx) {
+          return acc + val * targ[idx];
+        });
+      } //dot
+
+    }]);
+
+    return Vector;
+  }(); //Vector
+
+
+  CanvasControls.Vector = Vector;
 })(CanvasControls = exports.CanvasControls || (exports.CanvasControls = {})); //CanvasControls
 
 
