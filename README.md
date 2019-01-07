@@ -20,5 +20,4 @@ cc.handle();  //attach handles, can only be called once, to attach handles after
 ## Features  
 * Scrolling - click 'n' drag  
 * Zooming - mouse wheel, 2-finger pinch  
-* Rotating - other mouse button / 2-finger pinch with one as a pole  
 * Clickable buttons/widgets  

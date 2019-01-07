@@ -31,7 +31,6 @@ export declare module CanvasControls {
          * @member {number[]} transBound=-Infinity,-Infinity,Infinity,Infinity - Max translation boundaries
          * @member {boolean} dragEnabled=false - Enable translation on drag
          * @member {boolean} pinchEnabled=false - Enable scaling on 2-finger pinch (1 finger only shall move)
-         * @member {boolean} pinchSwipeEnabled=false - Enable rotation on 2-finger pinch (both fingers shall move)
          * @member {boolean} wheelEnabled=false - Enable scaling on mouse wheel
          * @member {boolean} panEnabled=false - Enable translation based on mouse/finger distance from pin (pseudo-center)
          * @member {boolean} tiltEnabled=false - Enable translation on device movement
@@ -49,7 +48,6 @@ export declare module CanvasControls {
             rot: number;
             dragEnabled: boolean;
             pinchEnabled: boolean;
-            pinchSwipeEnabled: boolean;
             wheelEnabled: boolean;
             panEnabled: boolean;
             tiltEnabled: boolean;
@@ -75,9 +73,7 @@ export declare module CanvasControls {
          *	P: mouse  hold & move
          *	M: touch  hold & move
          * pinch:
-         *	touch  2-finger & 2-move
-         * pinchSwipe:
-         *	touch  2-finger & 1-move
+         *	touch  2-finger & move
          * wheel:
          *	wheel  move  [pc pinch-equivalent]
          * pan:
@@ -91,7 +87,6 @@ export declare module CanvasControls {
         interface ControllableCanvasAdapters {
             drag: Function | boolean;
             pinch?: Function | boolean;
-            pinchSwipe?: Function | boolean;
             wheel?: Function | boolean;
             pan: Function | boolean;
             tilt?: Function | boolean;
@@ -116,6 +111,7 @@ export declare module CanvasControls {
             index: number;
             parent: ControllableCanvas;
             enabled: boolean;
+            position: number;
             [prop: string]: any;
         }
         enum UseButton {
@@ -125,8 +121,12 @@ export declare module CanvasControls {
         }
         enum ScaleMode {
             NORMAL = 1,
-            FREESCALE = 2,
-            BYPASS = 4
+            FREESCALE = 2
+        }
+        enum Position {
+            FIXED = 1,
+            ABSOLUTE = 2,
+            UNSCALABLE = 4
         }
     }
     /**
@@ -137,7 +137,7 @@ export declare module CanvasControls {
         const ENOTCANV: TypeError;
         const ENOTCTX: TypeError;
         const ENOTNUMARR2: TypeError;
-        const ENOTNUMARR: TypeError;
+        const ENOTNUM: TypeError;
         const EISALR: ReferenceError;
     }
     /**
@@ -153,7 +153,6 @@ export declare module CanvasControls {
      * @prop {number[]} transBound=-Infinity,-Infinity,Infinity,Infinity - Max translation boundaries
      * @prop {boolean} dragEnabled=false - Enable translation on drag
      * @prop {boolean} pinchEnabled=false - Enable scaling on 2-finger pinch (both fingers shall move)
-     * @prop {boolean} pinchSwipeEnabled=false - Enable rotation on 2-finger pinch (1 finger only shall move)
      * @prop {boolean} wheelEnabled=false - Enable scaling on mouse wheel
      * @prop {boolean} panEnabled=false - Enable translation based on mouse/finger distance from pin (pseudo-center)
      * @prop {boolean} tiltEnabled=false - Enable translation on device movement
@@ -178,7 +177,6 @@ export declare module CanvasControls {
         sclBounds: number[];
         dragEnabled: boolean;
         pinchEnabled: boolean;
-        pinchSwipeEnabled: boolean;
         wheelEnabled: boolean;
         panEnabled: boolean;
         tiltEnabled: boolean;
@@ -233,8 +231,8 @@ export declare module CanvasControls {
          * @method
          * @param {number} x=0 - x translation
          * @param {number} y=0 - y translation
-         * @param {boolean} abs?=false - abslute translation or relative to current
-         * @returns {number[]} trans - Returns current total translation
+         * @param {boolean} abs?=false - absolute translation or relative to current
+         * @returns {number[]} Returns current total translation
          */
         translate(x?: number, y?: number, abs?: boolean): number[];
         /**
@@ -242,8 +240,8 @@ export declare module CanvasControls {
          * @method
          * @param {number} x=1 - x scale
          * @param {number} y=x - y scale
-         * @param {boolean} abs?=false - abslute scale or relative to current
-         * @returns {number[]} scl - Returns current total scaling
+         * @param {boolean} abs?=false - absolute scale or relative to current
+         * @returns {number[]} Returns current total scaling
          */
         scale(x?: number, y?: number, abs?: boolean): number[];
         private _mobileAdapt;
@@ -277,6 +275,7 @@ export declare module CanvasControls {
         _id: number;
         enabled: boolean;
         pstate: boolean;
+        position: number;
         private static sensitivity;
         private static _idcntr;
         /**
