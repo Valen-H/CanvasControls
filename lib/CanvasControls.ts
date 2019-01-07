@@ -284,7 +284,7 @@ export module CanvasControls {
 			scaleMode: 1,
 			transSpeed: 1,
 			sclSpeed: 1,
-			touchSensitivity: .5,
+			touchSensitivity: .35,
 			clickSensitivity: 800,
 			sclBounds: [0, 0, Infinity, Infinity],
 			transBounds: [-Infinity, -Infinity, Infinity, Infinity],
@@ -713,20 +713,37 @@ export module CanvasControls {
 		} //ctor
 
 		//@Override
+		/**
+		 * Checks if button was exited and decides whether to propagate
+		 * @param any
+		 */
 		blur(...any: any[]): boolean {
 			return true;
 		} //blur
 		//@Override
+		/**
+		 * Checks if button was entered and decides whether to propagate
+		 * @param any
+		 */
 		focus(...any: any[]): boolean {
 			return false;
 		} //focus
 		//@Override
+		/**
+		 * Checks if button was clicked and decides whether to propagate
+		 * @param any
+		 */
 		click(...any: any[]): boolean {
 			return true;
 		} //click
 
+		/**
+		 * Checks if pointer is above the widget
+		 * @param {number[]} relativeCoords
+		 * @method
+		 */
 		isOn(relativeCoords: number[]): boolean {
-			let out: boolean = isWithin([this.x, this.y, this.dx, this.dy], [relativeCoords[0], relativeCoords[1]]);
+			let out: boolean = isWithin([this.x, this.y, this.dx, this.dy], [relativeCoords[0], relativeCoords[1]], CanvasButton.sensitivity);
 
 			if (!out && this.pstate) {
 				this.blur(relativeCoords);

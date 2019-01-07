@@ -819,7 +819,7 @@ var CanvasControls;
     scaleMode: 1,
     transSpeed: 1,
     sclSpeed: 1,
-    touchSensitivity: .5,
+    touchSensitivity: .35,
     clickSensitivity: 800,
     sclBounds: [0, 0, Infinity, Infinity],
     transBounds: [-Infinity, -Infinity, Infinity, Infinity],
@@ -876,6 +876,11 @@ var CanvasControls;
     } //ctor
     //@Override
 
+    /**
+     * Checks if button was exited and decides whether to propagate
+     * @param any
+     */
+
 
     _createClass(CanvasButton, [{
       key: "blur",
@@ -884,6 +889,11 @@ var CanvasControls;
       } //blur
       //@Override
 
+      /**
+       * Checks if button was entered and decides whether to propagate
+       * @param any
+       */
+
     }, {
       key: "focus",
       value: function focus() {
@@ -891,16 +901,27 @@ var CanvasControls;
       } //focus
       //@Override
 
+      /**
+       * Checks if button was clicked and decides whether to propagate
+       * @param any
+       */
+
     }, {
       key: "click",
       value: function click() {
         return true;
       } //click
 
+      /**
+       * Checks if pointer is above the widget
+       * @param {number[]} relativeCoords
+       * @method
+       */
+
     }, {
       key: "isOn",
       value: function isOn(relativeCoords) {
-        var out = isWithin([this.x, this.y, this.dx, this.dy], [relativeCoords[0], relativeCoords[1]]);
+        var out = isWithin([this.x, this.y, this.dx, this.dy], [relativeCoords[0], relativeCoords[1]], CanvasButton.sensitivity);
 
         if (!out && this.pstate) {
           this.blur(relativeCoords);

@@ -286,9 +286,26 @@ export declare module CanvasControls {
          */
         private static defaultOpts;
         constructor(opts?: Opts.CanvasButtonOptions);
+        /**
+         * Checks if button was exited and decides whether to propagate
+         * @param any
+         */
         blur(...any: any[]): boolean;
+        /**
+         * Checks if button was entered and decides whether to propagate
+         * @param any
+         */
         focus(...any: any[]): boolean;
+        /**
+         * Checks if button was clicked and decides whether to propagate
+         * @param any
+         */
         click(...any: any[]): boolean;
+        /**
+         * Checks if pointer is above the widget
+         * @param {number[]} relativeCoords
+         * @method
+         */
         isOn(relativeCoords: number[]): boolean;
     }
     /**
