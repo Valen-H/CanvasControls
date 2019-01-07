@@ -8,7 +8,6 @@
  */
 
 "use strict";
-
 import "@babel/polyfill";
 
 /**
@@ -16,7 +15,6 @@ import "@babel/polyfill";
  * @copyright Valen. H. 2k18
  * @author Valen.H. <alternativexxxy@gmail.com>
  */
-
 
 /**
  * The root of the main library
@@ -44,7 +42,6 @@ export module CanvasControls {
 
 		return dest;
 	} //inherit
-
 	/**
 	 * Restrict number's range
 	 * @function
@@ -54,10 +51,9 @@ export module CanvasControls {
 	 * @param {number} M - maximum number
 	 * @returns {number} bound number
 	 */
-	function bound(n: number, m: number, M: number): number {
+	export function bound(n: number, m: number, M: number): number {
 		return n > M ? M : (n < m ? m : n);
 	} //bound
-
 	/**
 	 * Calculate distance between 2 points
 	 * @param {number[]} Xs - X coordinates
@@ -69,7 +65,6 @@ export module CanvasControls {
 	function dist(Xs: number[], Ys: number[]): number {
 		return Math.sqrt([Xs[1] - Xs[0], Ys[1] - Ys[0]].map((v: number) => Math.pow(v, 2)).reduce((acc: number, v: number) => acc + v));
 	} //dist
-
 	/**
 	 * Checks if pointer is inside an area
 	 * @param {number[]} box - x,y,dx,dy
@@ -88,7 +83,6 @@ export module CanvasControls {
 	 * @namespace
 	 */
 	export namespace Opts {
-
 		/**
 		 * A wrapper for the targeted canvas element
 		 * @interface
@@ -115,7 +109,6 @@ export module CanvasControls {
 			target: HTMLCanvasElement;
 			trans: number[];
 			scl: number[];
-			rot: number;
 			dragEnabled: boolean;
 			pinchEnabled: boolean;
 			wheelEnabled: boolean;
@@ -134,7 +127,6 @@ export module CanvasControls {
 			wgets: Set<CanvasButton>;
 			[prop: string]: any;
 		} //ControllableCanvasOptions
-
 		/**
 		 * M: mobile
 		 * P: pc
@@ -164,7 +156,6 @@ export module CanvasControls {
 			click: Function | boolean;  //MP
 			[prop: string]: any;
 		} //ControllableCanvasAdapters
-
 		/**
 		 * Options of ControllableCanvas.CanvasButton
 		 * @interface
@@ -219,7 +210,6 @@ export module CanvasControls {
 	 * @prop {CanvasRenderingContext2D} context?=target.getContext("2d") - The 2d context created out of `target`
 	 * @prop {number[]} trans=0,0 - Translation
 	 * @prop {number[]} scl=1,1 - Scaling
-	 * @prop {number[]} rot=0,0 - Rotation
 	 * @prop {number[]} pin?=this.target.width/2,this.target.height/2 - Pseudo-center
 	 * @prop {number[]} transBound=-Infinity,-Infinity,Infinity,Infinity - Max translation boundaries
 	 * @prop {boolean} dragEnabled=false - Enable translation on drag
@@ -242,33 +232,31 @@ export module CanvasControls {
 		context: CanvasRenderingContext2D;
 		trans: number[] = [0, 0];
 		scl: number[] = [1, 1];
-		rot: number = 0;
-		pin: number[];
+		pin: number[];  //OBS
 		transBounds: number[] = [-Infinity, -Infinity, Infinity, Infinity];
 		sclBounds: number[] = [0, 0, Infinity, Infinity];
 		dragEnabled: boolean = false;
 		pinchEnabled: boolean = false;
 		wheelEnabled: boolean = false;
-		panEnabled: boolean = false;
-		tiltEnabled: boolean = false;
+		panEnabled: boolean = false;  //OBS
+		tiltEnabled: boolean = false;  //OBS
 		eventsReversed: boolean = false;
 		useButton: number = Opts.UseButton.USELEFT;
-		scaleMode: number = Opts.ScaleMode.NORMAL; /** @todo mask: freescale-axis,rotation-as-scaling */
+		scaleMode: number = Opts.ScaleMode.NORMAL;
 		transSpeed: number = 1;
 		sclSpeed: number = 1;
 		touchSensitivity: number = .5;
 		clickSensitivity: number = 800;
 		wgets: Set<CanvasButton>;
-		private _handled: boolean = false;
 		private _mobile: boolean = false;
 		private _pressed: boolean = false;
 		private _clktime: number = 0;
 		_adapts: Opts.ControllableCanvasAdapters;
 		private _coordinates: number[] = [ ];
 		private _touches: number[][] = [ ];
-		static CanvasButton: Class;
 
 		private static _linepix: number = 10;
+		static CanvasButton: Class;
 		/**
 		 * Default options for ControllableCanvas
 		 * @readonly
@@ -278,7 +266,6 @@ export module CanvasControls {
 			target: document.getElementsByTagName("canvas")[0],
 			trans: [0, 0],
 			scl: [1, 1],
-			rot: 0,
 			dragEnabled: false,
 			pinchEnabled: false,
 			wheelEnabled: false,
@@ -332,7 +319,6 @@ export module CanvasControls {
 			this._adapts = <Opts.ControllableCanvasAdapters>{ };
 			inherit(this._adapts, opts._adapts);
 
-			this.rot = opts.rot * 1;
 			this.transSpeed = opts.transSpeed * 1;
 			this.sclSpeed = opts.sclSpeed * 1;
 			this.touchSensitivity = opts.touchSensitivity * 1;
@@ -355,7 +341,6 @@ export module CanvasControls {
 			this.tiltEnabled = !!opts.tiltEnabled;
 			this.eventsReversed = !!opts.eventsReversed;
 
-			this._handled = false;
 			this._pressed = false;
 			this._coordinates = [0, 0];
 			this._touches = [ ];
@@ -365,30 +350,27 @@ export module CanvasControls {
 
 		get ratio(): number {
 			return this.target.width / this.target.height;
-		} //g-ratio
-
+		} //g-ratio  OBS
 		get min(): number {
 			return Math.min(this.target.width, this.target.height);
 		} //g-min
 		get max(): number {
 			return Math.max(this.target.width, this.target.height);
-		} //g-max
+		} //g-max  OBS
 
 
 		/**
-		 * Enable controls, call only once
+		 * Enable controls
 		 * @method
-		 * @param {boolean} force?=false - Force handle
-		 * @returns {boolean} bound? - whether bind suceeded or it was already bound earlier
 		 */
-		handle(force: boolean = false): boolean {
-			if (!this._handled || force) {
-				this._mobile ? this._mobileAdapt() : this._pcAdapt();
-				return this._handled = true;
-			}
-			return false;
+		handle(): void {
+			this._mobile ? this._mobileAdapt() : this._pcAdapt();
 		} //handle
-
+		/**
+		 * Add (/create) a widget in the controller
+		 * @param {ControllableCanvas.CanvasButton|Opts.CanvasButtonOptions} data - constructor options
+		 * @return {ControllableCanvas.CanvasButton} the widget
+		 */
 		addWidget(data: CanvasButton | Opts.CanvasButtonOptions): CanvasButton {
 			if (data instanceof CanvasButton && !this.wgets.has(data)) {
 				data.parent = this;
@@ -410,7 +392,7 @@ export module CanvasControls {
 		 * @returns {ControllableCanvas} this - For method chaining
 		 */
 		retransform(): ThisType<ControllableCanvas> {
-			this.context.setTransform(1, 0, 0, 1, 0, 0);
+			this.context.setTransform(1, 0, 0, 1, 0, 0);  //SKEW/ROTATE NOT IMPLEMENTED!!
 			this.context.translate(this.trans[0], this.trans[1]);
 			this.context.scale(this.scl[0], this.scl[1]);
 			return this;
@@ -426,6 +408,7 @@ export module CanvasControls {
 		 */
 		translate(x: number = 0, y: number = 0, abs: boolean = false): number[] {
 			let by: number[] = [x, y].map(Number);
+			if (this.eventsReversed) by = by.map((b: number) => -b);
 			return this.trans = this.trans.map((trn: number, idx: number) => bound(Number(!abs ? (trn + by[idx]) : by[idx]), this.transBounds[idx], this.transBounds[idx + 2]));
 		} //translate
 		/**
@@ -438,6 +421,7 @@ export module CanvasControls {
 		 */
 		scale(x: number = 1, y: number = x, abs: boolean = false): number[] {
 			let by: number[] = [x, y].map(Number);
+			if (this.eventsReversed) by = by.map((b: number) => -b);
 			return this.scl = this.scl.map((scl: number, idx: number) => bound(Number(!abs ? (scl * by[idx]) : by[idx]), this.sclBounds[idx], this.sclBounds[idx + 2]));
 		} //scale
 
@@ -448,7 +432,7 @@ export module CanvasControls {
 				this.target.addEventListener("touchend", (e: TouchEvent) => ControllableCanvas.dragMobileEnd(e, this), { passive: false });
 				this.target.addEventListener("touchcancel", (e: TouchEvent) => ControllableCanvas.dragMobileEnd(e, this), { passive: false });
 			}
-			if (!this._adapts.tilt) {
+			if (!this._adapts.tilt && this.tiltEnabled) {
 
 			}
 		} //_mobileAdapt
@@ -462,7 +446,7 @@ export module CanvasControls {
 			if (!this._adapts.wheel && this.wheelEnabled) {
 				this.target.addEventListener("wheel", this._adapts.wheel = (e: WheelEvent) => ControllableCanvas.wheel(e, this));
 			}
-			if (!this._adapts.tilt) {
+			if (!this._adapts.tilt && this.tiltEnabled) {
 
 			}
 			if (!this._adapts.click) {
@@ -470,16 +454,18 @@ export module CanvasControls {
 			}
 		} //_pcAdapt
 
-		static dragPC(event: MouseEvent, cc: ControllableCanvas): void {
-			if (((cc.useButton & Opts.UseButton.USERIGHT) !== Opts.UseButton.USERIGHT && ((("buttons" in event) && (event.buttons & 2) === 2) || (("which" in event) && event.which === 3) || (("button" in event) && event.button === 2))) || ((cc.useButton & Opts.UseButton.USERIGHT) === Opts.UseButton.USERIGHT && (cc.useButton & Opts.UseButton.USEBOTH) !== Opts.UseButton.USEBOTH && (("buttons" in event) && (event.buttons & 2) !== 2) && (("which" in event) && event.which !== 3) && (("button" in event) && event.button !== 2))) {
-				return;
-			}
-
+		private static dragPC(event: MouseEvent, cc: ControllableCanvas): void {
 			event.preventDefault();
 
 			let coords: number[] = [event.clientX - cc.target.offsetLeft, event.clientY - cc.target.offsetTop],
 				rel: number[] = [],
 				ret: boolean = false;
+
+			cc._coordinates = coords;
+
+			if (((cc.useButton & Opts.UseButton.USERIGHT) !== Opts.UseButton.USERIGHT && ((("buttons" in event) && (event.buttons & 2) === 2) || (("which" in event) && event.which === 3) || (("button" in event) && event.button === 2))) || ((cc.useButton & Opts.UseButton.USERIGHT) === Opts.UseButton.USERIGHT && (cc.useButton & Opts.UseButton.USEBOTH) !== Opts.UseButton.USEBOTH && (("buttons" in event) && (event.buttons & 2) !== 2) && (("which" in event) && event.which !== 3) && (("button" in event) && event.button !== 2))) {
+				return;
+			}
 
 			if (cc._pressed) {
 				cc.translate(event.movementX * cc.transSpeed, event.movementY * cc.transSpeed);
@@ -489,11 +475,9 @@ export module CanvasControls {
 				butt.enabled && butt.isOn(rel = coords.map((c: number, idx: number) => (c - cc.trans[idx]) / cc.scl[idx])) && !butt.pstate && (butt.pstate = true, ret = butt.focus(rel));
 				if (ret) break;
 			}
-
-			cc._coordinates = coords;
 		} //dragPC
 
-		static dragMobileMove(event: TouchEvent, cc: ControllableCanvas): void {
+		private static dragMobileMove(event: TouchEvent, cc: ControllableCanvas): void {
 			function check(arr: number[], curr: number[]): boolean {
 				if (arr.every((ar: number, idx: number) => Math.abs(ar - curr[idx]) >= cc.touchSensitivity)) {
 					return true;
@@ -536,13 +520,20 @@ export module CanvasControls {
 				inh(true);
 			} else if (cc.pinchEnabled && cc._touches.length === 2 && event.targetTouches.length === 2 && every(arraynge(event.targetTouches), cc._touches, false, true)) {
 				if ((cc.scaleMode & Opts.ScaleMode.FREESCALE) === Opts.ScaleMode.FREESCALE) {
-					
+					let inidist: number[] = [Math.abs(cc._touches[event.targetTouches[0].identifier][0] - cc._touches[event.targetTouches[1].identifier][0]), Math.abs(cc._touches[event.targetTouches[0].identifier][1] - cc._touches[event.targetTouches[1].identifier][1])],
+						dis: number[] = [Math.abs(event.targetTouches[0].clientX - event.targetTouches[1].clientX - 2 * cc.target.offsetLeft), Math.abs(event.targetTouches[0].clientY - event.targetTouches[1].clientY - 2 * cc.target.offsetTop)],
+						itouches: number[] = [cc._touches[event.targetTouches[0].identifier][0] + cc._touches[event.targetTouches[1].identifier][0], cc._touches[event.targetTouches[0].identifier][1] + cc._touches[event.targetTouches[1].identifier][1]].map((i: number, idx: number) => i / 2 - cc.trans[idx]),
+						d: number[] = [dis[0] / inidist[0], dis[1] / inidist[1]].map((v: number) => v * cc.sclSpeed),
+						ntouches: number[] = itouches.map((i: number, idx: number) => i * (1 - d[idx]));
+
+					cc.translate(...ntouches);
+					cc.scale(d[0], d[1]);
 				} else {
 					//@ts-ignore
 					let inidist: number = dist([cc._touches[event.targetTouches[0].identifier][0], cc._touches[event.targetTouches[1].identifier][0]], [cc._touches[event.targetTouches[0].identifier][1], cc._touches[event.targetTouches[1].identifier][1]]),
 						dis: number = dist([event.targetTouches[0].clientX - cc.target.offsetLeft, event.targetTouches[1].clientX - cc.target.offsetLeft], [event.targetTouches[0].clientY - cc.target.offsetTop, event.targetTouches[1].clientY - cc.target.offsetTop]),
-						itouches: number[] = [cc._touches[0][0] + cc._touches[1][0], cc._touches[0][1] + cc._touches[1][1]].map((i: number, idx: number) => i / 2 - cc.trans[idx]),
-						d: number = dis / inidist,
+						itouches: number[] = [cc._touches[event.targetTouches[0].identifier][0] + cc._touches[event.targetTouches[1].identifier][0], cc._touches[event.targetTouches[0].identifier][1] + cc._touches[event.targetTouches[1].identifier][1]].map((i: number, idx: number) => i / 2 - cc.trans[idx]),
+						d: number = cc.sclSpeed * dis / inidist,
 						ntouches: number[] = itouches.map((i: number) => i * (1 - d));
 
 					cc.translate(...ntouches);
@@ -553,8 +544,9 @@ export module CanvasControls {
 
 			cc._coordinates = coords;
 		} //dragMobileMove
-		static dragMobileStart(event: TouchEvent, cc: ControllableCanvas, cust: boolean = false): void {
+		private static dragMobileStart(event: TouchEvent, cc: ControllableCanvas, cust: boolean = false): void {
 			event.preventDefault();
+
 			if (!cust) {
 				let coords: number[],
 					sorted = Array.from(cc.wgets.entries()).map((s: CanvasButton[]) => s[1]).sort((a: CanvasButton, b: CanvasButton) => b._id - a._id),
@@ -571,16 +563,19 @@ export module CanvasControls {
 					}
 				}
 			}
+
 			if (cc._touches.length === 1) {
 				cc._clktime = Date.now();
 				cc._coordinates = cc._touches[cc._touches.length - 1];
 			} else {
 				cc._clktime = 0;
 			}
+
 			cc._pressed = true;
 		} //dragMobileStart
-		static dragMobileEnd(event: TouchEvent, cc: ControllableCanvas): void {
+		private static dragMobileEnd(event: TouchEvent, cc: ControllableCanvas): void {
 			event.preventDefault();
+
 			let coords: number[],
 				sorted = Array.from(cc.wgets.entries()).map((s: CanvasButton[]) => s[1]).sort((a: CanvasButton, b: CanvasButton) => b._id - a._id),
 				ret: boolean = false;
@@ -601,16 +596,19 @@ export module CanvasControls {
 
 				cc._clktime = 0;
 			}
+
 			Array.from(event.changedTouches).forEach((t: Touch) => {
 				cc._touches.splice(t.identifier, 1);
 			});
+
 			if (Object.keys(cc._touches).length == 1) {
 				ControllableCanvas.dragMobileStart(event, cc, true);
 			}
+
 			cc._pressed = !!cc._touches.length;
 		} //dragMobileEnd
 
-		static wheel(event: WheelEvent, cc: ControllableCanvas): void {
+		private static wheel(event: WheelEvent, cc: ControllableCanvas): void {
 			event.preventDefault();
 			let d: number = 1 - cc.sclSpeed * ControllableCanvas.fixDelta(event.deltaMode, event.deltaY) / cc.min,
 				coords: number[] = [event.clientX - cc.target.offsetLeft - cc.trans[0], event.clientY - cc.target.offsetTop - cc.trans[1]];
@@ -618,7 +616,7 @@ export module CanvasControls {
 			cc.scale(d);
 		} //wheel
 
-		static clickPC(event: MouseEvent, cc: ControllableCanvas): void {
+		private static clickPC(event: MouseEvent, cc: ControllableCanvas): void {
 			let coords: number[] = [(event.clientX - cc.target.offsetLeft - cc.trans[0]) / cc.scl[0], (event.clientY - cc.target.offsetTop - cc.trans[1]) / cc.scl[1]],
 				sorted = Array.from(cc.wgets.entries()).map((s: CanvasButton[]) => s[1]).sort((a: CanvasButton, b: CanvasButton) => b._id - a._id),
 				ret: boolean = false;
@@ -666,7 +664,6 @@ export module CanvasControls {
 				return deltaY;
 			}
 		} //fixDelta
-		
 	} //ControllableCanvas
 
 	/**
@@ -678,7 +675,7 @@ export module CanvasControls {
 	 * @prop {number} dy - height
 	 * @prop {number} index - equivalent to CSS z-index
 	 */
-	class CanvasButton implements Opts.CanvasButtonOptions {
+	export class CanvasButton implements Opts.CanvasButtonOptions {
 		x: number = 0;
 		y: number = 0;
 		dx: number = 0;
@@ -690,14 +687,14 @@ export module CanvasControls {
 		pstate: boolean = false;
 		position: number = 2;
 
-		private static sensitivity: number = .3;
+		static sensitivity: number = .3;
 		private static _idcntr: number = 0;
 		/**
 		 * Default options for CanvasButton
 		 * @readonly
 		 * @static
 		 */
-		private static defaultOpts: Opts.CanvasButtonOptions = {
+		static defaultOpts: Opts.CanvasButtonOptions = {
 			x: 0,
 			y: 0,
 			dx: 0,
@@ -770,7 +767,7 @@ export module CanvasControls {
 
 			return out;
 		} //isOn
-	}
+	} //CanvasButton
 
 	ControllableCanvas.CanvasButton = CanvasButton;
 
@@ -834,8 +831,79 @@ export module CanvasControls {
 		dot(targ: Vector): number {
 			return this.props.reduce((acc: number, val: number, idx: number) => acc + val * targ[idx]);
 		} //dot
-
 	} //Vector
+
+	/**
+	 * @prop {HTMLElement[]} resources - All HTML resource elements with "load" listeners that will be loaded. like: audio/img
+	 */
+	export class ResourceLoader {
+		resources: HTMLElement[] = [ ];
+		_loadcntr: number = 0;
+
+		constructor(resources: HTMLElement[], onload?: (res?: HTMLElement, load?: number) => void, autobind: boolean = false) {
+			this.resources = Array.from(resources);
+			this.load = onload || this.load;
+			if (autobind) this.bind(this.load);
+		} //ctor
+
+		/**
+		 * Bind load events and await loadend
+		 * @param {Function} onload? - code to execute once loaded
+		 */
+		bind(onload: (res?: HTMLElement, load?: number) => void): void {
+			if (onload) this.load = onload;
+			this.resources.forEach((res: HTMLElement) => {
+				res.addEventListener("load", (): void => {
+					if (++this._loadcntr === this.resources.length) {
+						this.load(res, this._loadcntr);
+					}
+				});
+			});
+		} //bind
+		//@Override
+		load(res?: HTMLElement, load?: number): void { } //load
+
+		/**
+		 * Load images by URLs
+		 * @method
+		 * @static
+		 * @param {string[]} urlist - list of urls
+		 * @param {Function} onload - callback
+		 * @param {boolean} autobind=true - auto bind
+		 * @returns {ResourceLoader} the loader
+		 */
+		static images(urlist: string[], onload?: (res?: HTMLElement, load?: number) => void, autobind: boolean = true): ResourceLoader {
+			let imglist: HTMLImageElement[] = [ ];
+
+			for (let url of urlist) {
+				let img = new Image();
+				img.src = url;
+				imglist.push(img);
+			}
+
+			return new ResourceLoader(imglist, onload, autobind);
+		} //images
+		/**
+		 * Load audio by URLs
+		 * @method
+		 * @static
+		 * @param {string[]} urlist - list of urls
+		 * @param {Function} onload - callback
+		 * @param {boolean} autobind=true - auto bind
+		 * @returns {ResourceLoader} the loader
+		 */
+		static audios(urlist: string[], onload?: (res?: HTMLElement, load?: number) => void, autobind: boolean = true): ResourceLoader {
+			let audiolist: HTMLAudioElement[] = [ ];
+
+			for (let url of urlist) {
+				let audio = new Audio(url);
+				audio.load();
+				audiolist.push(audio);
+			}
+
+			return new ResourceLoader(audiolist, onload, autobind);
+		} //audios
+	} //ResourceLoader
 
 } //CanvasControls
 

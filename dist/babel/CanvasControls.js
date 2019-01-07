@@ -80,6 +80,8 @@ var CanvasControls;
     return n > M ? M : n < m ? m : n;
   } //bound
 
+
+  CanvasControls.bound = bound;
   /**
    * Calculate distance between 2 points
    * @param {number[]} Xs - X coordinates
@@ -88,7 +90,6 @@ var CanvasControls;
    * @function
    * @inner
    */
-
 
   function dist(Xs, Ys) {
     return Math.sqrt([Xs[1] - Xs[0], Ys[1] - Ys[0]].map(function (v) {
@@ -174,7 +175,6 @@ var CanvasControls;
    * @prop {CanvasRenderingContext2D} context?=target.getContext("2d") - The 2d context created out of `target`
    * @prop {number[]} trans=0,0 - Translation
    * @prop {number[]} scl=1,1 - Scaling
-   * @prop {number[]} rot=0,0 - Rotation
    * @prop {number[]} pin?=this.target.width/2,this.target.height/2 - Pseudo-center
    * @prop {number[]} transBound=-Infinity,-Infinity,Infinity,Infinity - Max translation boundaries
    * @prop {boolean} dragEnabled=false - Enable translation on drag
@@ -209,24 +209,22 @@ var CanvasControls;
 
       this.trans = [0, 0];
       this.scl = [1, 1];
-      this.rot = 0;
       this.transBounds = [-Infinity, -Infinity, Infinity, Infinity];
       this.sclBounds = [0, 0, Infinity, Infinity];
       this.dragEnabled = false;
       this.pinchEnabled = false;
       this.wheelEnabled = false;
-      this.panEnabled = false;
-      this.tiltEnabled = false;
+      this.panEnabled = false; //OBS
+
+      this.tiltEnabled = false; //OBS
+
       this.eventsReversed = false;
       this.useButton = Opts.UseButton.USELEFT;
       this.scaleMode = Opts.ScaleMode.NORMAL;
-      /** @todo mask: freescale-axis,rotation-as-scaling */
-
       this.transSpeed = 1;
       this.sclSpeed = 1;
       this.touchSensitivity = .5;
       this.clickSensitivity = 800;
-      this._handled = false;
       this._mobile = false;
       this._pressed = false;
       this._clktime = 0;
@@ -258,7 +256,6 @@ var CanvasControls;
       this.context = this.target.getContext("2d");
       this._adapts = {};
       inherit(this._adapts, opts._adapts);
-      this.rot = opts.rot * 1;
       this.transSpeed = opts.transSpeed * 1;
       this.sclSpeed = opts.sclSpeed * 1;
       this.touchSensitivity = opts.touchSensitivity * 1;
@@ -279,7 +276,6 @@ var CanvasControls;
       this.panEnabled = !!opts.panEnabled;
       this.tiltEnabled = !!opts.tiltEnabled;
       this.eventsReversed = !!opts.eventsReversed;
-      this._handled = false;
       this._pressed = false;
       this._coordinates = [0, 0];
       this._touches = [];
@@ -290,24 +286,21 @@ var CanvasControls;
 
     _createClass(ControllableCanvas, [{
       key: "handle",
-      //g-max
+      //g-max  OBS
 
       /**
-       * Enable controls, call only once
+       * Enable controls
        * @method
-       * @param {boolean} force?=false - Force handle
-       * @returns {boolean} bound? - whether bind suceeded or it was already bound earlier
        */
       value: function handle() {
-        var force = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : false;
-
-        if (!this._handled || force) {
-          this._mobile ? this._mobileAdapt() : this._pcAdapt();
-          return this._handled = true;
-        }
-
-        return false;
+        this._mobile ? this._mobileAdapt() : this._pcAdapt();
       } //handle
+
+      /**
+       * Add (/create) a widget in the controller
+       * @param {ControllableCanvas.CanvasButton|Opts.CanvasButtonOptions} data - constructor options
+       * @return {ControllableCanvas.CanvasButton} the widget
+       */
 
     }, {
       key: "addWidget",
@@ -335,7 +328,8 @@ var CanvasControls;
     }, {
       key: "retransform",
       value: function retransform() {
-        this.context.setTransform(1, 0, 0, 1, 0, 0);
+        this.context.setTransform(1, 0, 0, 1, 0, 0); //SKEW/ROTATE NOT IMPLEMENTED!!
+
         this.context.translate(this.trans[0], this.trans[1]);
         this.context.scale(this.scl[0], this.scl[1]);
         return this;
@@ -359,6 +353,9 @@ var CanvasControls;
         var y = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0;
         var abs = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
         var by = [x, y].map(Number);
+        if (this.eventsReversed) by = by.map(function (b) {
+          return -b;
+        });
         return this.trans = this.trans.map(function (trn, idx) {
           return bound(Number(!abs ? trn + by[idx] : by[idx]), _this.transBounds[idx], _this.transBounds[idx + 2]);
         });
@@ -382,6 +379,9 @@ var CanvasControls;
         var y = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : x;
         var abs = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
         var by = [x, y].map(Number);
+        if (this.eventsReversed) by = by.map(function (b) {
+          return -b;
+        });
         return this.scl = this.scl.map(function (scl, idx) {
           return bound(Number(!abs ? scl * by[idx] : by[idx]), _this2.sclBounds[idx], _this2.sclBounds[idx + 2]);
         });
@@ -415,7 +415,7 @@ var CanvasControls;
           });
         }
 
-        if (!this._adapts.tilt) {}
+        if (!this._adapts.tilt && this.tiltEnabled) {}
       } //_mobileAdapt
 
     }, {
@@ -447,7 +447,7 @@ var CanvasControls;
           });
         }
 
-        if (!this._adapts.tilt) {}
+        if (!this._adapts.tilt && this.tiltEnabled) {}
 
         if (!this._adapts.click) {
           this.target.addEventListener("click", this._adapts.click = function (e) {
@@ -460,7 +460,7 @@ var CanvasControls;
       key: "ratio",
       get: function get() {
         return this.target.width / this.target.height;
-      } //g-ratio
+      } //g-ratio  OBS
 
     }, {
       key: "min",
@@ -476,14 +476,15 @@ var CanvasControls;
     }], [{
       key: "dragPC",
       value: function dragPC(event, cc) {
-        if ((cc.useButton & Opts.UseButton.USERIGHT) !== Opts.UseButton.USERIGHT && ("buttons" in event && (event.buttons & 2) === 2 || "which" in event && event.which === 3 || "button" in event && event.button === 2) || (cc.useButton & Opts.UseButton.USERIGHT) === Opts.UseButton.USERIGHT && (cc.useButton & Opts.UseButton.USEBOTH) !== Opts.UseButton.USEBOTH && "buttons" in event && (event.buttons & 2) !== 2 && "which" in event && event.which !== 3 && "button" in event && event.button !== 2) {
-          return;
-        }
-
         event.preventDefault();
         var coords = [event.clientX - cc.target.offsetLeft, event.clientY - cc.target.offsetTop],
             rel = [],
             ret = false;
+        cc._coordinates = coords;
+
+        if ((cc.useButton & Opts.UseButton.USERIGHT) !== Opts.UseButton.USERIGHT && ("buttons" in event && (event.buttons & 2) === 2 || "which" in event && event.which === 3 || "button" in event && event.button === 2) || (cc.useButton & Opts.UseButton.USERIGHT) === Opts.UseButton.USERIGHT && (cc.useButton & Opts.UseButton.USEBOTH) !== Opts.UseButton.USEBOTH && "buttons" in event && (event.buttons & 2) !== 2 && "which" in event && event.which !== 3 && "button" in event && event.button !== 2) {
+          return;
+        }
 
         if (cc._pressed) {
           cc.translate(event.movementX * cc.transSpeed, event.movementY * cc.transSpeed);
@@ -515,8 +516,6 @@ var CanvasControls;
             }
           }
         }
-
-        cc._coordinates = coords;
       } //dragPC
 
     }, {
@@ -581,20 +580,34 @@ var CanvasControls;
           if (dis > cc.touchSensitivity) cc._clktime = 0;
           inh(true);
         } else if (cc.pinchEnabled && cc._touches.length === 2 && event.targetTouches.length === 2 && every(arraynge(event.targetTouches), cc._touches, false, true)) {
-          if ((cc.scaleMode & Opts.ScaleMode.FREESCALE) === Opts.ScaleMode.FREESCALE) {} else {
-            //@ts-ignore
-            var inidist = dist([cc._touches[event.targetTouches[0].identifier][0], cc._touches[event.targetTouches[1].identifier][0]], [cc._touches[event.targetTouches[0].identifier][1], cc._touches[event.targetTouches[1].identifier][1]]),
-                _dis = dist([event.targetTouches[0].clientX - cc.target.offsetLeft, event.targetTouches[1].clientX - cc.target.offsetLeft], [event.targetTouches[0].clientY - cc.target.offsetTop, event.targetTouches[1].clientY - cc.target.offsetTop]),
-                itouches = [cc._touches[0][0] + cc._touches[1][0], cc._touches[0][1] + cc._touches[1][1]].map(function (i, idx) {
+          if ((cc.scaleMode & Opts.ScaleMode.FREESCALE) === Opts.ScaleMode.FREESCALE) {
+            var inidist = [Math.abs(cc._touches[event.targetTouches[0].identifier][0] - cc._touches[event.targetTouches[1].identifier][0]), Math.abs(cc._touches[event.targetTouches[0].identifier][1] - cc._touches[event.targetTouches[1].identifier][1])],
+                _dis = [Math.abs(event.targetTouches[0].clientX - event.targetTouches[1].clientX - 2 * cc.target.offsetLeft), Math.abs(event.targetTouches[0].clientY - event.targetTouches[1].clientY - 2 * cc.target.offsetTop)],
+                itouches = [cc._touches[event.targetTouches[0].identifier][0] + cc._touches[event.targetTouches[1].identifier][0], cc._touches[event.targetTouches[0].identifier][1] + cc._touches[event.targetTouches[1].identifier][1]].map(function (i, idx) {
               return i / 2 - cc.trans[idx];
             }),
-                d = _dis / inidist,
-                ntouches = itouches.map(function (i) {
-              return i * (1 - d);
+                d = [_dis[0] / inidist[0], _dis[1] / inidist[1]].map(function (v) {
+              return v * cc.sclSpeed;
+            }),
+                ntouches = itouches.map(function (i, idx) {
+              return i * (1 - d[idx]);
+            });
+            cc.translate.apply(cc, _toConsumableArray(ntouches));
+            cc.scale(d[0], d[1]);
+          } else {
+            //@ts-ignore
+            var _inidist = dist([cc._touches[event.targetTouches[0].identifier][0], cc._touches[event.targetTouches[1].identifier][0]], [cc._touches[event.targetTouches[0].identifier][1], cc._touches[event.targetTouches[1].identifier][1]]),
+                _dis2 = dist([event.targetTouches[0].clientX - cc.target.offsetLeft, event.targetTouches[1].clientX - cc.target.offsetLeft], [event.targetTouches[0].clientY - cc.target.offsetTop, event.targetTouches[1].clientY - cc.target.offsetTop]),
+                _itouches = [cc._touches[event.targetTouches[0].identifier][0] + cc._touches[event.targetTouches[1].identifier][0], cc._touches[event.targetTouches[0].identifier][1] + cc._touches[event.targetTouches[1].identifier][1]].map(function (i, idx) {
+              return i / 2 - cc.trans[idx];
+            }),
+                _d = cc.sclSpeed * _dis2 / _inidist,
+                _ntouches = _itouches.map(function (i) {
+              return i * (1 - _d);
             });
 
-            cc.translate.apply(cc, _toConsumableArray(ntouches));
-            cc.scale(d);
+            cc.translate.apply(cc, _toConsumableArray(_ntouches));
+            cc.scale(_d);
           }
 
           inh();
@@ -882,7 +895,6 @@ var CanvasControls;
     target: document.getElementsByTagName("canvas")[0],
     trans: [0, 0],
     scl: [1, 1],
-    rot: 0,
     dragEnabled: false,
     pinchEnabled: false,
     wheelEnabled: false,
@@ -1015,7 +1027,8 @@ var CanvasControls;
     }]);
 
     return CanvasButton;
-  }();
+  }(); //CanvasButton
+
 
   CanvasButton.sensitivity = .3;
   CanvasButton._idcntr = 0;
@@ -1036,6 +1049,7 @@ var CanvasControls;
     position: 2,
     parent: new ControllableCanvas()
   };
+  CanvasControls.CanvasButton = CanvasButton;
   ControllableCanvas.CanvasButton = CanvasButton;
   /**
    * A class offering mathematical Vector utilities
@@ -1134,6 +1148,146 @@ var CanvasControls;
 
 
   CanvasControls.Vector = Vector;
+  /**
+   * @prop {HTMLElement[]} resources - All HTML resource elements with "load" listeners that will be loaded. like: audio/img
+   */
+
+  var ResourceLoader =
+  /*#__PURE__*/
+  function () {
+    function ResourceLoader(resources, onload) {
+      var autobind = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
+
+      _classCallCheck(this, ResourceLoader);
+
+      this.resources = [];
+      this._loadcntr = 0;
+      this.resources = Array.from(resources);
+      this.load = onload || this.load;
+      if (autobind) this.bind(this.load);
+    } //ctor
+
+    /**
+     * Bind load events and await loadend
+     * @param {Function} onload? - code to execute once loaded
+     */
+
+
+    _createClass(ResourceLoader, [{
+      key: "bind",
+      value: function bind(onload) {
+        var _this7 = this;
+
+        if (onload) this.load = onload;
+        this.resources.forEach(function (res) {
+          res.addEventListener("load", function () {
+            if (++_this7._loadcntr === _this7.resources.length) {
+              _this7.load(res, _this7._loadcntr);
+            }
+          });
+        });
+      } //bind
+      //@Override
+
+    }, {
+      key: "load",
+      value: function load(res, _load) {} //load
+
+      /**
+       * Load images by URLs
+       * @method
+       * @static
+       * @param {string[]} urlist - list of urls
+       * @param {Function} onload - callback
+       * @param {boolean} autobind=true - auto bind
+       * @returns {ResourceLoader} the loader
+       */
+
+    }], [{
+      key: "images",
+      value: function images(urlist, onload) {
+        var autobind = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : true;
+        var imglist = [];
+        var _iteratorNormalCompletion8 = true;
+        var _didIteratorError8 = false;
+        var _iteratorError8 = undefined;
+
+        try {
+          for (var _iterator8 = urlist[Symbol.iterator](), _step8; !(_iteratorNormalCompletion8 = (_step8 = _iterator8.next()).done); _iteratorNormalCompletion8 = true) {
+            var url = _step8.value;
+            var img = new Image();
+            img.src = url;
+            imglist.push(img);
+          }
+        } catch (err) {
+          _didIteratorError8 = true;
+          _iteratorError8 = err;
+        } finally {
+          try {
+            if (!_iteratorNormalCompletion8 && _iterator8.return != null) {
+              _iterator8.return();
+            }
+          } finally {
+            if (_didIteratorError8) {
+              throw _iteratorError8;
+            }
+          }
+        }
+
+        return new ResourceLoader(imglist, onload, autobind);
+      } //images
+
+      /**
+       * Load audio by URLs
+       * @method
+       * @static
+       * @param {string[]} urlist - list of urls
+       * @param {Function} onload - callback
+       * @param {boolean} autobind=true - auto bind
+       * @returns {ResourceLoader} the loader
+       */
+
+    }, {
+      key: "audios",
+      value: function audios(urlist, onload) {
+        var autobind = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : true;
+        var audiolist = [];
+        var _iteratorNormalCompletion9 = true;
+        var _didIteratorError9 = false;
+        var _iteratorError9 = undefined;
+
+        try {
+          for (var _iterator9 = urlist[Symbol.iterator](), _step9; !(_iteratorNormalCompletion9 = (_step9 = _iterator9.next()).done); _iteratorNormalCompletion9 = true) {
+            var url = _step9.value;
+            var audio = new Audio(url);
+            audio.load();
+            audiolist.push(audio);
+          }
+        } catch (err) {
+          _didIteratorError9 = true;
+          _iteratorError9 = err;
+        } finally {
+          try {
+            if (!_iteratorNormalCompletion9 && _iterator9.return != null) {
+              _iterator9.return();
+            }
+          } finally {
+            if (_didIteratorError9) {
+              throw _iteratorError9;
+            }
+          }
+        }
+
+        return new ResourceLoader(audiolist, onload, autobind);
+      } //audios
+
+    }]);
+
+    return ResourceLoader;
+  }(); //ResourceLoader
+
+
+  CanvasControls.ResourceLoader = ResourceLoader;
 })(CanvasControls = exports.CanvasControls || (exports.CanvasControls = {})); //CanvasControls
 
 

@@ -15,6 +15,16 @@ export declare module CanvasControls {
         new (...args: any[]): any;
     };
     /**
+     * Restrict number's range
+     * @function
+     * @inner
+     * @param {number} n - target number
+     * @param {number} m - minimum number
+     * @param {number} M - maximum number
+     * @returns {number} bound number
+     */
+    function bound(n: number, m: number, M: number): number;
+    /**
      * A holder for all Options
      * @namespace
      */
@@ -45,7 +55,6 @@ export declare module CanvasControls {
             target: HTMLCanvasElement;
             trans: number[];
             scl: number[];
-            rot: number;
             dragEnabled: boolean;
             pinchEnabled: boolean;
             wheelEnabled: boolean;
@@ -148,7 +157,6 @@ export declare module CanvasControls {
      * @prop {CanvasRenderingContext2D} context?=target.getContext("2d") - The 2d context created out of `target`
      * @prop {number[]} trans=0,0 - Translation
      * @prop {number[]} scl=1,1 - Scaling
-     * @prop {number[]} rot=0,0 - Rotation
      * @prop {number[]} pin?=this.target.width/2,this.target.height/2 - Pseudo-center
      * @prop {number[]} transBound=-Infinity,-Infinity,Infinity,Infinity - Max translation boundaries
      * @prop {boolean} dragEnabled=false - Enable translation on drag
@@ -171,7 +179,6 @@ export declare module CanvasControls {
         context: CanvasRenderingContext2D;
         trans: number[];
         scl: number[];
-        rot: number;
         pin: number[];
         transBounds: number[];
         sclBounds: number[];
@@ -182,21 +189,20 @@ export declare module CanvasControls {
         tiltEnabled: boolean;
         eventsReversed: boolean;
         useButton: number;
-        scaleMode: number; /** @todo mask: freescale-axis,rotation-as-scaling */
+        scaleMode: number;
         transSpeed: number;
         sclSpeed: number;
         touchSensitivity: number;
         clickSensitivity: number;
         wgets: Set<CanvasButton>;
-        private _handled;
         private _mobile;
         private _pressed;
         private _clktime;
         _adapts: Opts.ControllableCanvasAdapters;
         private _coordinates;
         private _touches;
-        static CanvasButton: Class;
         private static _linepix;
+        static CanvasButton: Class;
         /**
          * Default options for ControllableCanvas
          * @readonly
@@ -213,12 +219,15 @@ export declare module CanvasControls {
         readonly min: number;
         readonly max: number;
         /**
-         * Enable controls, call only once
+         * Enable controls
          * @method
-         * @param {boolean} force?=false - Force handle
-         * @returns {boolean} bound? - whether bind suceeded or it was already bound earlier
          */
-        handle(force?: boolean): boolean;
+        handle(): void;
+        /**
+         * Add (/create) a widget in the controller
+         * @param {ControllableCanvas.CanvasButton|Opts.CanvasButtonOptions} data - constructor options
+         * @return {ControllableCanvas.CanvasButton} the widget
+         */
         addWidget(data: CanvasButton | Opts.CanvasButtonOptions): CanvasButton;
         /**
          * Re-apply internal transformations
@@ -246,12 +255,12 @@ export declare module CanvasControls {
         scale(x?: number, y?: number, abs?: boolean): number[];
         private _mobileAdapt;
         private _pcAdapt;
-        static dragPC(event: MouseEvent, cc: ControllableCanvas): void;
-        static dragMobileMove(event: TouchEvent, cc: ControllableCanvas): void;
-        static dragMobileStart(event: TouchEvent, cc: ControllableCanvas, cust?: boolean): void;
-        static dragMobileEnd(event: TouchEvent, cc: ControllableCanvas): void;
-        static wheel(event: WheelEvent, cc: ControllableCanvas): void;
-        static clickPC(event: MouseEvent, cc: ControllableCanvas): void;
+        private static dragPC;
+        private static dragMobileMove;
+        private static dragMobileStart;
+        private static dragMobileEnd;
+        private static wheel;
+        private static clickPC;
         private static readonly isMobile;
         private static readonly lineToPix;
         private static fixDelta;
@@ -276,14 +285,14 @@ export declare module CanvasControls {
         enabled: boolean;
         pstate: boolean;
         position: number;
-        private static sensitivity;
+        static sensitivity: number;
         private static _idcntr;
         /**
          * Default options for CanvasButton
          * @readonly
          * @static
          */
-        private static defaultOpts;
+        static defaultOpts: Opts.CanvasButtonOptions;
         constructor(opts?: Opts.CanvasButtonOptions);
         /**
          * Checks if button was exited and decides whether to propagate
@@ -339,6 +348,40 @@ export declare module CanvasControls {
          * @returns product
          */
         dot(targ: Vector): number;
+    }
+    /**
+     * @prop {HTMLElement[]} resources - All HTML resource elements with "load" listeners that will be loaded. like: audio/img
+     */
+    class ResourceLoader {
+        resources: HTMLElement[];
+        _loadcntr: number;
+        constructor(resources: HTMLElement[], onload?: (res?: HTMLElement, load?: number) => void, autobind?: boolean);
+        /**
+         * Bind load events and await loadend
+         * @param {Function} onload? - code to execute once loaded
+         */
+        bind(onload: (res?: HTMLElement, load?: number) => void): void;
+        load(res?: HTMLElement, load?: number): void;
+        /**
+         * Load images by URLs
+         * @method
+         * @static
+         * @param {string[]} urlist - list of urls
+         * @param {Function} onload - callback
+         * @param {boolean} autobind=true - auto bind
+         * @returns {ResourceLoader} the loader
+         */
+        static images(urlist: string[], onload?: (res?: HTMLElement, load?: number) => void, autobind?: boolean): ResourceLoader;
+        /**
+         * Load audio by URLs
+         * @method
+         * @static
+         * @param {string[]} urlist - list of urls
+         * @param {Function} onload - callback
+         * @param {boolean} autobind=true - auto bind
+         * @returns {ResourceLoader} the loader
+         */
+        static audios(urlist: string[], onload?: (res?: HTMLElement, load?: number) => void, autobind?: boolean): ResourceLoader;
     }
 }
 declare const _default: typeof CanvasControls.ControllableCanvas;

@@ -1,4 +1,6 @@
-﻿var cc;
+﻿var cc,
+	bc = "black",
+	sc = "black";
 
 window.onload = function load() {
 	if (CanvasControls.CanvasControls.ControllableCanvas.isMobile) {
@@ -10,6 +12,7 @@ window.onload = function load() {
 		dragEnabled: true,
 		wheelEnabled: true,
 		pinchEnabled: true,
+		scaleMode: 2,
 		useRight: 3
 	});
 	let bigbox = cc.addWidget({
@@ -24,12 +27,12 @@ window.onload = function load() {
 			dx: 30,
 			dy: 30
 		});
-	bigbox.focus = () => console.log("Big box entered.");
-	bigbox.blur = () => console.log("Big box exited.");
-	bigbox.click = () => console.log("Big box clicked.");
-	smallbox.focus = () => console.log("Small box entered.");
-	smallbox.blur = () => console.log("Small box exited.");
-	smallbox.click = () => console.log("Small box clicked.");
+	bigbox.focus = () => bc = "purple";
+	bigbox.blur = () => bc = "black";
+	bigbox.click = () => bc = "red";
+	smallbox.focus = () => sc = "purple";
+	smallbox.blur = () => sc = "black";
+	smallbox.click = () => sc = "red";
 	cc.handle();
 	resize();
 	frame();
@@ -51,8 +54,11 @@ function frame() {
 	cc.context.setTransform(1, 0, 0, 1, 0, 0);
 	cc.context.clearRect(0, 0, cc.target.width, cc.target.height);
 	cc.retransform();
+	cc.context.fillStyle = sc;
 	cc.context.fillRect(50, 50, 30, 30);
+	cc.context.fillStyle = bc;
 	cc.context.fillRect(200, 110, 50, 60);
+	cc.context.fillStyle = "blue";
 	cc.context.fillRect(0, 0, 5, 5);
 	cc.context.fillStyle = "rgba(250,5,5,.5)";
 	cc.context.beginPath();
