@@ -61,6 +61,7 @@ export declare module CanvasControls {
             transSpeed: number;
             sclSpeed: number;
             touchSensitivity: number;
+            clickSensitivity: number;
             _adapts: ControllableCanvasAdapters;
             wgets: Set<CanvasButton>;
             [prop: string]: any;
@@ -88,12 +89,13 @@ export declare module CanvasControls {
          * @inner
          */
         interface ControllableCanvasAdapters {
-            drag?: Function | boolean;
+            drag: Function | boolean;
             pinch?: Function | boolean;
             pinchSwipe?: Function | boolean;
             wheel?: Function | boolean;
-            pan?: Function | boolean;
+            pan: Function | boolean;
             tilt?: Function | boolean;
+            click: Function | boolean;
             [prop: string]: any;
         }
         /**
@@ -113,6 +115,7 @@ export declare module CanvasControls {
             dy: number;
             index: number;
             parent: ControllableCanvas;
+            enabled: boolean;
             [prop: string]: any;
         }
         enum UseButton {
@@ -185,10 +188,12 @@ export declare module CanvasControls {
         transSpeed: number;
         sclSpeed: number;
         touchSensitivity: number;
+        clickSensitivity: number;
         wgets: Set<CanvasButton>;
         private _handled;
         private _mobile;
         private _pressed;
+        private _clktime;
         _adapts: Opts.ControllableCanvasAdapters;
         private _coordinates;
         private _touches;
@@ -248,6 +253,7 @@ export declare module CanvasControls {
         static dragMobileStart(event: TouchEvent, cc: ControllableCanvas, cust?: boolean): void;
         static dragMobileEnd(event: TouchEvent, cc: ControllableCanvas): void;
         static wheel(event: WheelEvent, cc: ControllableCanvas): void;
+        static clickPC(event: MouseEvent, cc: ControllableCanvas): void;
         private static readonly isMobile;
         private static readonly lineToPix;
         private static fixDelta;
@@ -268,8 +274,9 @@ export declare module CanvasControls {
         dy: number;
         index: number;
         parent: ControllableCanvas;
-        private pstate;
-        private _id;
+        _id: number;
+        enabled: boolean;
+        pstate: boolean;
         private static sensitivity;
         private static _idcntr;
         /**
@@ -279,9 +286,9 @@ export declare module CanvasControls {
          */
         private static defaultOpts;
         constructor(opts?: Opts.CanvasButtonOptions);
-        blur(...any: any[]): void;
-        focus(...any: any[]): void;
-        click(): void;
+        blur(...any: any[]): boolean;
+        focus(...any: any[]): boolean;
+        click(...any: any[]): boolean;
         isOn(relativeCoords: number[]): boolean;
     }
     /**

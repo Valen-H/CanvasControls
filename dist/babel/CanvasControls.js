@@ -211,9 +211,11 @@ var CanvasControls;
       this.transSpeed = 1;
       this.sclSpeed = 1;
       this.touchSensitivity = .5;
+      this.clickSensitivity = 800;
       this._handled = false;
       this._mobile = false;
       this._pressed = false;
+      this._clktime = 0;
       this._coordinates = [];
       this._touches = [];
       inherit(opts, ControllableCanvas.defaultOpts);
@@ -246,6 +248,7 @@ var CanvasControls;
       this.transSpeed = opts.transSpeed * 1;
       this.sclSpeed = opts.sclSpeed * 1;
       this.touchSensitivity = opts.touchSensitivity * 1;
+      this.clickSensitivity = opts.clickSensitivity * 1;
       this.useButton = opts.useButton | 0;
       this.scaleMode = opts.scaleMode | 0;
       this.wgets = new Set(opts.wgets);
@@ -431,6 +434,12 @@ var CanvasControls;
         }
 
         if (!this._adapts.tilt) {}
+
+        if (!this._adapts.click) {
+          this.target.addEventListener("click", this._adapts.click = function (e) {
+            return ControllableCanvas.clickPC(e, _this4);
+          });
+        }
       } //_pcAdapt
 
     }, {
@@ -458,10 +467,39 @@ var CanvasControls;
         }
 
         event.preventDefault();
-        var coords = [event.clientX - cc.target.offsetLeft, event.clientY - cc.target.offsetTop];
+        var coords = [event.clientX - cc.target.offsetLeft, event.clientY - cc.target.offsetTop],
+            rel = [],
+            ret = false;
 
         if (cc._pressed) {
           cc.translate(event.movementX * cc.transSpeed, event.movementY * cc.transSpeed);
+        }
+
+        var _iteratorNormalCompletion = true;
+        var _didIteratorError = false;
+        var _iteratorError = undefined;
+
+        try {
+          for (var _iterator = cc.wgets[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+            var butt = _step.value;
+            butt.enabled && butt.isOn(rel = coords.map(function (c, idx) {
+              return c - cc.trans[idx];
+            })) && !butt.pstate && (butt.pstate = true, ret = butt.focus(rel));
+            if (ret) break;
+          }
+        } catch (err) {
+          _didIteratorError = true;
+          _iteratorError = err;
+        } finally {
+          try {
+            if (!_iteratorNormalCompletion && _iterator.return != null) {
+              _iterator.return();
+            }
+          } finally {
+            if (_didIteratorError) {
+              throw _iteratorError;
+            }
+          }
         }
 
         cc._coordinates = coords;
@@ -519,9 +557,13 @@ var CanvasControls;
         var coords = [event.targetTouches[event.targetTouches.length - 1].clientX - cc.target.offsetLeft, event.targetTouches[event.targetTouches.length - 1].clientY - cc.target.offsetTop];
 
         if (cc._touches.length === 1) {
+          var cp = Array.from(cc.trans),
+              dis;
           cc.translate.apply(cc, _toConsumableArray([coords[0] - cc._coordinates[0], coords[1] - cc._coordinates[1]].map(function (v) {
             return v * cc.transSpeed;
           })));
+          dis = dist([cp[0], cc.trans[0]], [cp[1], cc.trans[1]]);
+          if (dis > cc.touchSensitivity) cc._clktime = 0;
           inh(true);
         } else if (cc._touches.length === 2 && event.targetTouches.length === 2) {
           if (cc.pinchEnabled && (cc.scaleMode & Opts.ScaleMode.BYPASS) === Opts.ScaleMode.BYPASS) {
@@ -535,14 +577,15 @@ var CanvasControls;
             if ((cc.scaleMode & Opts.ScaleMode.FREESCALE) === Opts.ScaleMode.FREESCALE) {} else {
               //@ts-ignore
               var inidist = dist([cc._touches[event.changedTouches[0].identifier][0], cc._touches[event.changedTouches[1].identifier][0]], [cc._touches[event.changedTouches[0].identifier][1], cc._touches[event.changedTouches[1].identifier][1]]),
-                  dis = dist([event.changedTouches[0].clientX - cc.target.offsetLeft, event.changedTouches[1].clientX - cc.target.offsetLeft], [event.changedTouches[0].clientY - cc.target.offsetTop, event.changedTouches[1].clientY - cc.target.offsetTop]),
+                  _dis = dist([event.changedTouches[0].clientX - cc.target.offsetLeft, event.changedTouches[1].clientX - cc.target.offsetLeft], [event.changedTouches[0].clientY - cc.target.offsetTop, event.changedTouches[1].clientY - cc.target.offsetTop]),
                   itouches = [cc._touches[0][0] + cc._touches[1][0], cc._touches[0][1] + cc._touches[1][1]].map(function (i, idx) {
                 return i / 2 - cc.trans[idx];
               }),
-                  d = dis / inidist,
+                  d = _dis / inidist,
                   ntouches = itouches.map(function (i) {
                 return i * (1 - d);
               });
+
               cc.translate.apply(cc, _toConsumableArray(ntouches));
               cc.scale(d);
             }
@@ -561,9 +604,46 @@ var CanvasControls;
         event.preventDefault();
 
         if (!cust) {
+          var coords = [event.changedTouches[event.changedTouches.length - 1].clientX - cc.target.offsetLeft - cc.trans[0], event.changedTouches[event.changedTouches.length - 1].clientY - cc.target.offsetTop - cc.trans[1]],
+              sorted = Array.from(cc.wgets.entries()).map(function (s) {
+            return s[1];
+          }).sort(function (a, b) {
+            return b._id - a._id;
+          }),
+              ret = false;
           Array.from(event.changedTouches).forEach(function (t) {
             return cc._touches[t.identifier] = [t.clientX - cc.target.offsetLeft, t.clientY - cc.target.offsetTop];
           });
+          var _iteratorNormalCompletion2 = true;
+          var _didIteratorError2 = false;
+          var _iteratorError2 = undefined;
+
+          try {
+            for (var _iterator2 = sorted[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+              var butt = _step2.value;
+              butt.enabled && butt.isOn(coords) && !butt.pstate && (butt.pstate = true, ret = butt.focus(coords));
+              if (ret) break;
+            }
+          } catch (err) {
+            _didIteratorError2 = true;
+            _iteratorError2 = err;
+          } finally {
+            try {
+              if (!_iteratorNormalCompletion2 && _iterator2.return != null) {
+                _iterator2.return();
+              }
+            } finally {
+              if (_didIteratorError2) {
+                throw _iteratorError2;
+              }
+            }
+          }
+        }
+
+        if (cc._touches.length === 1) {
+          cc._clktime = Date.now();
+        } else {
+          cc._clktime = 0;
         }
 
         cc._pressed = true;
@@ -574,6 +654,43 @@ var CanvasControls;
       key: "dragMobileEnd",
       value: function dragMobileEnd(event, cc) {
         event.preventDefault();
+
+        if (cc._touches.length === 1 && Date.now() - cc._clktime <= cc.clickSensitivity) {
+          var coords = [event.changedTouches[event.changedTouches.length - 1].clientX - cc.target.offsetLeft - cc.trans[0], event.changedTouches[event.changedTouches.length - 1].clientY - cc.target.offsetTop - cc.trans[1]],
+              sorted = Array.from(cc.wgets.entries()).map(function (s) {
+            return s[1];
+          }).sort(function (a, b) {
+            return b._id - a._id;
+          }),
+              ret = false;
+          var _iteratorNormalCompletion3 = true;
+          var _didIteratorError3 = false;
+          var _iteratorError3 = undefined;
+
+          try {
+            for (var _iterator3 = sorted[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+              var butt = _step3.value;
+              butt.enabled && butt.isOn(coords) && (ret = butt.click(coords));
+              if (ret) break;
+            }
+          } catch (err) {
+            _didIteratorError3 = true;
+            _iteratorError3 = err;
+          } finally {
+            try {
+              if (!_iteratorNormalCompletion3 && _iterator3.return != null) {
+                _iterator3.return();
+              }
+            } finally {
+              if (_didIteratorError3) {
+                throw _iteratorError3;
+              }
+            }
+          }
+
+          cc._clktime = 0;
+        }
+
         Array.from(event.changedTouches).forEach(function (t) {
           cc._touches.splice(t.identifier, 1);
         });
@@ -596,6 +713,42 @@ var CanvasControls;
         })));
         cc.scale(d);
       } //wheel
+
+    }, {
+      key: "clickPC",
+      value: function clickPC(event, cc) {
+        var coords = [event.clientX - cc.target.offsetLeft - cc.trans[0], event.clientY - cc.target.offsetTop - cc.trans[1]],
+            sorted = Array.from(cc.wgets.entries()).map(function (s) {
+          return s[1];
+        }).sort(function (a, b) {
+          return b._id - a._id;
+        }),
+            ret = false;
+        var _iteratorNormalCompletion4 = true;
+        var _didIteratorError4 = false;
+        var _iteratorError4 = undefined;
+
+        try {
+          for (var _iterator4 = sorted[Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
+            var butt = _step4.value;
+            butt.enabled && butt.isOn(coords) && (ret = butt.click(coords));
+            if (ret) break;
+          }
+        } catch (err) {
+          _didIteratorError4 = true;
+          _iteratorError4 = err;
+        } finally {
+          try {
+            if (!_iteratorNormalCompletion4 && _iterator4.return != null) {
+              _iterator4.return();
+            }
+          } finally {
+            if (_didIteratorError4) {
+              throw _iteratorError4;
+            }
+          }
+        }
+      } //clickPC
 
     }, {
       key: "fixDelta",
@@ -667,6 +820,7 @@ var CanvasControls;
     transSpeed: 1,
     sclSpeed: 1,
     touchSensitivity: .5,
+    clickSensitivity: 800,
     sclBounds: [0, 0, Infinity, Infinity],
     transBounds: [-Infinity, -Infinity, Infinity, Infinity],
     _adapts: {
@@ -675,7 +829,8 @@ var CanvasControls;
       pinchSwipe: false,
       wheel: false,
       pan: false,
-      tilt: false
+      tilt: false,
+      click: false
     },
     wgets: new Set()
   };
@@ -703,6 +858,7 @@ var CanvasControls;
       this.dx = 0;
       this.dy = 0;
       this.index = -1;
+      this.enabled = true;
       this.pstate = false;
       inherit(opts, CanvasButton.defaultOpts);
 
@@ -723,27 +879,32 @@ var CanvasControls;
 
     _createClass(CanvasButton, [{
       key: "blur",
-      value: function blur() {} //blur
+      value: function blur() {
+        return true;
+      } //blur
       //@Override
 
     }, {
       key: "focus",
-      value: function focus() {} //focus
+      value: function focus() {
+        return false;
+      } //focus
       //@Override
 
     }, {
       key: "click",
-      value: function click() {} //click
+      value: function click() {
+        return true;
+      } //click
 
     }, {
       key: "isOn",
       value: function isOn(relativeCoords) {
         var out = isWithin([this.x, this.y, this.dx, this.dy], [relativeCoords[0], relativeCoords[1]]);
 
-        if (out && !this.pstate) {
-          this.focus(relativeCoords);
-        } else if (!out && this.pstate) {
+        if (!out && this.pstate) {
           this.blur(relativeCoords);
+          this.pstate = false;
         }
 
         return out;
@@ -769,6 +930,7 @@ var CanvasControls;
     dy: 0,
     index: -1,
     pstate: false,
+    enabled: true,
     parent: new ControllableCanvas()
   };
   ControllableCanvas.CanvasButton = CanvasButton;

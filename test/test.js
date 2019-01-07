@@ -12,6 +12,24 @@ window.onload = function load() {
 		pinchEnabled: true,
 		useRight: 3
 	});
+	let bigbox = cc.addWidget({
+		x: 200,
+		y: 110,
+		dx: 50,
+		dy: 60
+	}),
+		smallbox = cc.addWidget({
+			x: 50,
+			y: 50,
+			dx: 30,
+			dy: 30
+		});
+	bigbox.focus = () => console.log("Big box entered.");
+	bigbox.blur = () => console.log("Big box exited.");
+	bigbox.click = () => console.log("Big box clicked.");
+	smallbox.focus = () => console.log("Small box entered.");
+	smallbox.blur = () => console.log("Small box exited.");
+	smallbox.click = () => console.log("Small box clicked.");
 	cc.handle();
 	resize();
 	frame();

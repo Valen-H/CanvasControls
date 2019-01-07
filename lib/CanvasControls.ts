@@ -122,6 +122,7 @@ export module CanvasControls {
 			transSpeed: number;
 			sclSpeed: number;
 			touchSensitivity: number;
+			clickSensitivity: number;
 			_adapts: ControllableCanvasAdapters;
 			wgets: Set<CanvasButton>;
 			[prop: string]: any;
@@ -150,12 +151,13 @@ export module CanvasControls {
 		 * @inner
 		 */
 		export declare interface ControllableCanvasAdapters {
-			drag?: Function | boolean;  //MP
+			drag: Function | boolean;  //MP
 			pinch?: Function | boolean;  //M
 			pinchSwipe?: Function | boolean;  //M
 			wheel?: Function | boolean;  //P
-			pan?: Function | boolean;  //MP
+			pan: Function | boolean;  //MP
 			tilt?: Function | boolean;  //MP
+			click: Function | boolean;  //MP
 			[prop: string]: any;
 		} //ControllableCanvasAdapters
 
@@ -176,6 +178,7 @@ export module CanvasControls {
 			dy: number;
 			index: number;
 			parent: ControllableCanvas;
+			enabled: boolean;
 			[prop: string]: any;
 		} //CanvasButtonOptions
 
@@ -248,10 +251,12 @@ export module CanvasControls {
 		transSpeed: number = 1;
 		sclSpeed: number = 1;
 		touchSensitivity: number = .5;
+		clickSensitivity: number = 800;
 		wgets: Set<CanvasButton>;
 		private _handled: boolean = false;
 		private _mobile: boolean = false;
 		private _pressed: boolean = false;
+		private _clktime: number = 0;
 		_adapts: Opts.ControllableCanvasAdapters;
 		private _coordinates: number[] = [ ];
 		private _touches: number[][] = [ ];
@@ -280,6 +285,7 @@ export module CanvasControls {
 			transSpeed: 1,
 			sclSpeed: 1,
 			touchSensitivity: .5,
+			clickSensitivity: 800,
 			sclBounds: [0, 0, Infinity, Infinity],
 			transBounds: [-Infinity, -Infinity, Infinity, Infinity],
 			_adapts: {
@@ -288,7 +294,8 @@ export module CanvasControls {
 				pinchSwipe: false,
 				wheel: false,
 				pan: false,
-				tilt: false
+				tilt: false,
+				click: false
 			},
 			wgets: new Set()
 		};
@@ -325,6 +332,7 @@ export module CanvasControls {
 			this.transSpeed = opts.transSpeed * 1;
 			this.sclSpeed = opts.sclSpeed * 1;
 			this.touchSensitivity = opts.touchSensitivity * 1;
+			this.clickSensitivity = opts.clickSensitivity * 1;
 			this.useButton = opts.useButton | 0;
 			this.scaleMode = opts.scaleMode | 0;
 
@@ -454,6 +462,9 @@ export module CanvasControls {
 			if (!this._adapts.tilt) {
 
 			}
+			if (!this._adapts.click) {
+				this.target.addEventListener("click", this._adapts.click = (e: MouseEvent) => ControllableCanvas.clickPC(e, this));
+			}
 		} //_pcAdapt
 
 		static dragPC(event: MouseEvent, cc: ControllableCanvas): void {
@@ -463,10 +474,17 @@ export module CanvasControls {
 
 			event.preventDefault();
 
-			let coords: number[] = [event.clientX - cc.target.offsetLeft, event.clientY - cc.target.offsetTop];
+			let coords: number[] = [event.clientX - cc.target.offsetLeft, event.clientY - cc.target.offsetTop],
+				rel: number[] = [],
+				ret: boolean = false;
 
 			if (cc._pressed) {
 				cc.translate(event.movementX * cc.transSpeed, event.movementY * cc.transSpeed);
+			}
+
+			for (let butt of cc.wgets) {
+				butt.enabled && butt.isOn(rel = coords.map((c: number, idx: number) => c - cc.trans[idx])) && !butt.pstate && (butt.pstate = true, ret = butt.focus(rel));
+				if (ret) break;
 			}
 
 			cc._coordinates = coords;
@@ -507,7 +525,11 @@ export module CanvasControls {
 			let coords: number[] = [event.targetTouches[event.targetTouches.length - 1].clientX - cc.target.offsetLeft, event.targetTouches[event.targetTouches.length - 1].clientY - cc.target.offsetTop];
 
 			if (cc._touches.length === 1) {
+				let cp: number[] = Array.from(cc.trans),
+					dis: number;
 				cc.translate(...[coords[0] - cc._coordinates[0], coords[1] - cc._coordinates[1]].map((v: number) => v * cc.transSpeed));
+				dis = dist([cp[0], cc.trans[0]], [cp[1], cc.trans[1]]);
+				if (dis > cc.touchSensitivity) cc._clktime = 0;
 				inh(true);
 			} else if (cc._touches.length === 2 && event.targetTouches.length === 2) {
 				if (cc.pinchEnabled && (cc.scaleMode & Opts.ScaleMode.BYPASS) === Opts.ScaleMode.BYPASS) {
@@ -538,13 +560,38 @@ export module CanvasControls {
 		static dragMobileStart(event: TouchEvent, cc: ControllableCanvas, cust: boolean = false): void {
 			event.preventDefault();
 			if (!cust) {
+				let coords: number[] = [event.changedTouches[event.changedTouches.length - 1].clientX - cc.target.offsetLeft - cc.trans[0], event.changedTouches[event.changedTouches.length - 1].clientY - cc.target.offsetTop - cc.trans[1]],
+					sorted = Array.from(cc.wgets.entries()).map((s: CanvasButton[]) => s[1]).sort((a: CanvasButton, b: CanvasButton) => b._id - a._id),
+					ret: boolean = false;
+
 				Array.from(event.changedTouches).forEach((t: Touch) => cc._touches[t.identifier] = [t.clientX - cc.target.offsetLeft, t.clientY - cc.target.offsetTop]);
+
+				for (let butt of sorted) {
+					butt.enabled && butt.isOn(coords) && !butt.pstate && (butt.pstate = true, ret = butt.focus(coords));
+					if (ret) break;
+				}
+			}
+			if (cc._touches.length === 1) {
+				cc._clktime = Date.now();
+			} else {
+				cc._clktime = 0;
 			}
 			cc._pressed = true;
 			cc._coordinates = cc._touches[cc._touches.length - 1];
 		} //dragMobileStart
 		static dragMobileEnd(event: TouchEvent, cc: ControllableCanvas): void {
 			event.preventDefault();
+			if (cc._touches.length === 1 && Date.now() - cc._clktime <= cc.clickSensitivity) {
+				let coords: number[] = [event.changedTouches[event.changedTouches.length - 1].clientX - cc.target.offsetLeft - cc.trans[0], event.changedTouches[event.changedTouches.length - 1].clientY - cc.target.offsetTop - cc.trans[1]],
+					sorted = Array.from(cc.wgets.entries()).map((s: CanvasButton[]) => s[1]).sort((a: CanvasButton, b: CanvasButton) => b._id - a._id),
+					ret: boolean = false;
+
+				for (let butt of sorted) {
+					butt.enabled && butt.isOn(coords) && (ret = butt.click(coords));
+					if (ret) break;
+				}
+				cc._clktime = 0;
+			}
 			Array.from(event.changedTouches).forEach((t: Touch) => {
 				cc._touches.splice(t.identifier, 1);
 			});
@@ -561,6 +608,17 @@ export module CanvasControls {
 			cc.translate(...coords.map((c: number) => c * (1 - d)));
 			cc.scale(d);
 		} //wheel
+
+		static clickPC(event: MouseEvent, cc: ControllableCanvas): void {
+			let coords: number[] = [event.clientX - cc.target.offsetLeft - cc.trans[0], event.clientY - cc.target.offsetTop - cc.trans[1]],
+				sorted = Array.from(cc.wgets.entries()).map((s: CanvasButton[]) => s[1]).sort((a: CanvasButton, b: CanvasButton) => b._id - a._id),
+				ret: boolean = false;
+			
+			for (let butt of sorted) {
+				butt.enabled && butt.isOn(coords) && (ret = butt.click(coords));
+				if (ret) break;
+			}
+		} //clickPC
 
 
 		private static get isMobile(): boolean {
@@ -618,8 +676,9 @@ export module CanvasControls {
 		dy: number = 0;
 		index: number = -1;
 		parent: ControllableCanvas;
-		private pstate: boolean = false;
-		private _id: number;
+		_id: number;
+		enabled: boolean = true;
+		pstate: boolean = false;
 
 		private static sensitivity: number = .5;
 		private static _idcntr: number = 0;
@@ -635,6 +694,7 @@ export module CanvasControls {
 			dy: 0,
 			index: -1,
 			pstate: false,
+			enabled: true,
 			parent: new ControllableCanvas
 		};
 
@@ -653,25 +713,24 @@ export module CanvasControls {
 		} //ctor
 
 		//@Override
-		blur(...any: any[]) {
-
+		blur(...any: any[]): boolean {
+			return true;
 		} //blur
 		//@Override
-		focus(...any: any[]) {
-
+		focus(...any: any[]): boolean {
+			return false;
 		} //focus
 		//@Override
-		click() {
-
+		click(...any: any[]): boolean {
+			return true;
 		} //click
 
 		isOn(relativeCoords: number[]): boolean {
 			let out: boolean = isWithin([this.x, this.y, this.dx, this.dy], [relativeCoords[0], relativeCoords[1]]);
 
-			if (out && !this.pstate) {
-				this.focus(relativeCoords);
-			} else if (!out && this.pstate) {
+			if (!out && this.pstate) {
 				this.blur(relativeCoords);
+				this.pstate = false;
 			}
 
 			return out;
