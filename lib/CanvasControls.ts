@@ -35,7 +35,7 @@ export module CanvasControls {
 	 * @param {Function} condition - inheritance condition
 	 * @returns {object} destination object
 	 */
-	function inherit(dest: {}, targ: {}, condition: Function = (dest: {}, targ: {}, prop: string): any => dest[prop] === undefined && (dest[prop] = targ[prop])): {} {
+	export function inherit(dest: {}, targ: {}, condition: Function = (dest: {}, targ: {}, prop: string): any => dest[prop] === undefined && (dest[prop] = targ[prop])): {} {
 		for (let i in targ) {
 			condition(dest, targ, i);
 		}
@@ -49,11 +49,33 @@ export module CanvasControls {
 	 * @param {number} n - target number
 	 * @param {number} m - minimum number
 	 * @param {number} M - maximum number
+	 * @param {number} p=0 - precision
 	 * @returns {number} bound number
 	 */
-	export function bound(n: number, m: number, M: number): number {
-		return n > M ? M : (n < m ? m : n);
+	export function bound(n: number, m: number, M: number, p: number = 0): number {
+		return n > M + p ? M : (n < m - p ? m : n);
 	} //bound
+	/**
+	 * Downspeed incrementation
+	 * @param {number} n - number
+	 * @param {number} m - minimum
+	 * @param {number} M - Maximum
+	 * @param {number} op - operation
+	 * @returns {number} n
+	 */
+	export function block(n: number, m: number, M: number, op: number): number {
+		if (n > M && op > 0) {
+			return n;
+		} else if (n > M) {
+			return n + op;
+		} else if (n < m && op < 0) {
+			return n;
+		} else if (n < m) {
+			return n + op;
+		} else {
+			return n + op;
+		}
+	} //block
 	/**
 	 * Calculate distance between 2 points
 	 * @param {number[]} Xs - X coordinates
@@ -62,7 +84,7 @@ export module CanvasControls {
 	 * @function
 	 * @inner
 	 */
-	function dist(Xs: number[], Ys: number[]): number {
+	export function dist(Xs: number[], Ys: number[]): number {
 		return Math.sqrt([Xs[1] - Xs[0], Ys[1] - Ys[0]].map((v: number) => Math.pow(v, 2)).reduce((acc: number, v: number) => acc + v));
 	} //dist
 	/**
@@ -74,7 +96,7 @@ export module CanvasControls {
 	 * @inner
 	 * @function
 	 */
-	function isWithin(box: number[], point: number[], sensitivity: number = .5): boolean {
+	export function isWithin(box: number[], point: number[], sensitivity: number = .5): boolean {
 		return box[0] - sensitivity <= point[0] && box[0] + box[2] + sensitivity >= point[0] && box[1] - sensitivity <= point[1] && box[1] + box[3] + sensitivity >= point[1];
 	} //isWithin
 
@@ -107,24 +129,24 @@ export module CanvasControls {
 		 */
 		export declare interface ControllableCanvasOptions {
 			target: HTMLCanvasElement;
-			trans: number[];
-			scl: number[];
-			dragEnabled: boolean;
-			pinchEnabled: boolean;
-			wheelEnabled: boolean;
-			panEnabled: boolean;
-			tiltEnabled: boolean;
-			eventsReversed: boolean;
-			useButton: number;
-			scaleMode: number;
-			transBounds: number[];
-			sclBounds: number[];
-			transSpeed: number;
-			sclSpeed: number;
-			touchSensitivity: number;
-			clickSensitivity: number;
-			_adapts: ControllableCanvasAdapters;
-			wgets: Set<CanvasButton>;
+			trans?: number[];
+			scl?: number[];
+			dragEnabled?: boolean;
+			pinchEnabled?: boolean;
+			wheelEnabled?: boolean;
+			panEnabled?: boolean;
+			tiltEnabled?: boolean;
+			eventsReversed?: boolean;
+			useButton?: number;
+			scaleMode?: number;
+			transBounds?: number[];
+			sclBounds?: number[];
+			transSpeed?: number;
+			sclSpeed?: number;
+			touchSensitivity?: number;
+			clickSensitivity?: number;
+			_adapts?: ControllableCanvasAdapters;
+			wgets?: Set<CanvasButton>;
 			[prop: string]: any;
 		} //ControllableCanvasOptions
 		/**
@@ -171,10 +193,10 @@ export module CanvasControls {
 			y: number;
 			dx: number;
 			dy: number;
-			index: number;
+			index?: number;
 			parent: ControllableCanvas;
-			enabled: boolean;
-			position: number;
+			enabled?: boolean;
+			position?: number;
 			[prop: string]: any;
 		} //CanvasButtonOptions
 
@@ -248,6 +270,7 @@ export module CanvasControls {
 		touchSensitivity: number = .5;
 		clickSensitivity: number = 800;
 		wgets: Set<CanvasButton>;
+		private _zoomChanged: boolean[] = [false, false];
 		private _mobile: boolean = false;
 		private _pressed: boolean = false;
 		private _clktime: number = 0;
@@ -408,8 +431,8 @@ export module CanvasControls {
 		 */
 		translate(x: number = 0, y: number = 0, abs: boolean = false): number[] {
 			let by: number[] = [x, y].map(Number);
-			if (this.eventsReversed) by = by.map((b: number) => -b);
-			return this.trans = this.trans.map((trn: number, idx: number) => bound(Number(!abs ? (trn + by[idx]) : by[idx]), this.transBounds[idx], this.transBounds[idx + 2]));
+			if (this.eventsReversed) by = by.map((b: number): number => -b);
+			return this.trans = this.trans.map((trn: number, idx: number): number => bound(Number(!abs ? (trn + by[idx]) : by[idx]), this.transBounds[idx], this.transBounds[idx + 2]));
 		} //translate
 		/**
 		 * Intermediate scaling function for iconic scale before the real
@@ -421,8 +444,16 @@ export module CanvasControls {
 		 */
 		scale(x: number = 1, y: number = x, abs: boolean = false): number[] {
 			let by: number[] = [x, y].map(Number);
-			if (this.eventsReversed) by = by.map((b: number) => -b);
-			return this.scl = this.scl.map((scl: number, idx: number) => bound(Number(!abs ? (scl * by[idx]) : by[idx]), this.sclBounds[idx], this.sclBounds[idx + 2]));
+			if (this.eventsReversed) by = by.map((b: number): number => -b);
+			if (!abs) {
+				let nscl: number[] = this.scl.map((scl: number, idx: number): number => scl * by[idx]);
+				nscl = [nscl[0] - this.scl[0], nscl[1] - this.scl[1]];
+				this._zoomChanged = [this.scl[0] !== block(this.scl[0], this.sclBounds[0], this.sclBounds[2], nscl[0]), this.scl[1] !== block(this.scl[1], this.sclBounds[1], this.sclBounds[3], nscl[1])];
+				return this.scl = [block(this.scl[0], this.sclBounds[0], this.sclBounds[2], nscl[0]), block(this.scl[1], this.sclBounds[1], this.sclBounds[3], nscl[1])];
+			} else {
+				this._zoomChanged = [this.scl[0] !== bound(this.scl[0], this.sclBounds[0], this.sclBounds[2]), this.scl[1] !== bound(this.scl[1], this.sclBounds[1], this.sclBounds[3])];
+				return this.scl = this.scl.map((scl: number, idx: number): number => bound(scl * by[idx], this.sclBounds[idx], this.sclBounds[idx + 2]));
+			}
 		} //scale
 
 		private _mobileAdapt(): void {
@@ -441,13 +472,14 @@ export module CanvasControls {
 				this.target.addEventListener("mousemove", this._adapts.drag = (e: MouseEvent) => ControllableCanvas.dragPC(e, this));
 				this.target.addEventListener("mousedown", (e?: MouseEvent) => this._pressed = true);
 				this.target.addEventListener("mouseup", (e?: MouseEvent) => this._pressed = false);
+				this.target.addEventListener("mouseout", (e?: MouseEvent) => this._pressed = false);
 				if ((this.useButton & Opts.UseButton.USERIGHT) === Opts.UseButton.USERIGHT) this.target.addEventListener("contextmenu", (e: MouseEvent) => e.preventDefault(), { capture: true, passive: false });
 			}
 			if (!this._adapts.wheel && this.wheelEnabled) {
 				this.target.addEventListener("wheel", this._adapts.wheel = (e: WheelEvent) => ControllableCanvas.wheel(e, this));
 			}
 			if (!this._adapts.tilt && this.tiltEnabled) {
-
+				//TODO
 			}
 			if (!this._adapts.click) {
 				this.target.addEventListener("click", this._adapts.click = (e: MouseEvent) => ControllableCanvas.clickPC(e, this));
@@ -472,7 +504,7 @@ export module CanvasControls {
 			}
 
 			for (let butt of cc.wgets) {
-				butt.enabled && butt.isOn(rel = coords.map((c: number, idx: number) => (c - cc.trans[idx]) / cc.scl[idx])) && !butt.pstate && (butt.pstate = true, ret = butt.focus(rel));
+				butt.enabled && butt._isOn(rel = coords.map((c: number, idx: number) => (c - cc.trans[idx]) / cc.scl[idx])) && !butt.pstate && (butt.pstate = true, ret = butt.focus(rel));
 				if (ret) break;
 			}
 		} //dragPC
@@ -526,7 +558,8 @@ export module CanvasControls {
 						d: number[] = [dis[0] / inidist[0], dis[1] / inidist[1]].map((v: number) => v * cc.sclSpeed),
 						ntouches: number[] = itouches.map((i: number, idx: number) => i * (1 - d[idx]));
 
-					cc.translate(...ntouches);
+					if (cc._zoomChanged[0]) cc.translate(ntouches[0]);
+					if (cc._zoomChanged[1]) cc.translate(ntouches[1]);
 					cc.scale(d[0], d[1]);
 				} else {
 					//@ts-ignore
@@ -536,8 +569,8 @@ export module CanvasControls {
 						d: number = cc.sclSpeed * dis / inidist,
 						ntouches: number[] = itouches.map((i: number) => i * (1 - d));
 
-					cc.translate(...ntouches);
 					cc.scale(d);
+					if (cc._zoomChanged.every((zm: boolean): boolean => zm))  cc.translate(...ntouches);
 				}
 				inh();
 			}
@@ -558,7 +591,7 @@ export module CanvasControls {
 					coords = [(touch.clientX - cc.target.offsetLeft - cc.trans[0]) / cc.scl[0], (touch.clientY - cc.target.offsetTop - cc.trans[1]) / cc.scl[1]];
 
 					for (let butt of sorted) {
-						butt.enabled && butt.isOn(coords) && !butt.pstate && (butt.pstate = true, ret = butt.focus(coords));
+						butt.enabled && butt._isOn(coords) && !butt.pstate && (butt.pstate = true, ret = butt.focus(coords));
 						if (ret) break;
 					}
 				}
@@ -584,13 +617,13 @@ export module CanvasControls {
 				coords = [(touch.clientX - cc.target.offsetLeft - cc.trans[0]) / cc.scl[0], (touch.clientY - cc.target.offsetTop - cc.trans[1]) / cc.scl[1]];
 
 				for (let butt of sorted) {
-					butt.enabled && butt.isOn(coords);
+					butt.enabled && butt._isOn(coords);
 				}
 			}
 
 			if (cc._touches.length === 1 && Date.now() - cc._clktime <= cc.clickSensitivity) {
 				for (let butt of sorted) {
-					butt.enabled && butt.isOn(coords) && (ret = butt.click(coords));
+					butt.enabled && butt._isOn(coords) && (ret = butt.click(coords));
 					if (ret) break;
 				}
 
@@ -612,8 +645,8 @@ export module CanvasControls {
 			event.preventDefault();
 			let d: number = 1 - cc.sclSpeed * ControllableCanvas.fixDelta(event.deltaMode, event.deltaY) / cc.min,
 				coords: number[] = [event.clientX - cc.target.offsetLeft - cc.trans[0], event.clientY - cc.target.offsetTop - cc.trans[1]];
-			cc.translate(...coords.map((c: number) => c * (1 - d)));
 			cc.scale(d);
+			if (cc._zoomChanged.every((zm: boolean): boolean => zm)) cc.translate(...coords.map((c: number) => c * (1 - d)));
 		} //wheel
 
 		private static clickPC(event: MouseEvent, cc: ControllableCanvas): void {
@@ -622,12 +655,12 @@ export module CanvasControls {
 				ret: boolean = false;
 			
 			for (let butt of sorted) {
-				butt.enabled && butt.isOn(coords) && (ret = butt.click(coords));
+				butt.enabled && butt._isOn(coords) && (ret = butt.click(coords));
 				if (ret) break;
 			}
 		} //clickPC
-
-
+		
+		
 		private static get isMobile(): boolean {
 			if (navigator.userAgent.match(/Android/i) || navigator.userAgent.match(/webOS/i)
 				|| navigator.userAgent.match(/iPhone/i) || navigator.userAgent.match(/iPad/i)
@@ -637,8 +670,8 @@ export module CanvasControls {
 			} else {
 				return false;
 			}
-		} //detectMobile
-
+		} //isMobile
+		
 		private static get lineToPix(): number {
 			let r: number,
 				iframe: HTMLIFrameElement = document.createElement("iframe");
@@ -654,7 +687,7 @@ export module CanvasControls {
 			document.body.removeChild(iframe);
 			return r;
 		} //lineToPix
-
+		
 		private static fixDelta(mode: number, deltaY: number): number {
 			if (mode === 1) {
 				return ControllableCanvas._linepix * deltaY;
@@ -753,7 +786,7 @@ export module CanvasControls {
 		 * @param {number[]} relativeCoords
 		 * @method
 		 */
-		isOn(relativeCoords: number[]): boolean {
+		_isOn(relativeCoords: number[]): boolean {
 			let x: number = (this.position & Opts.Position.FIXED) === Opts.Position.FIXED ? this.x - this.parent.trans[0] : this.x,
 				y: number = (this.position & Opts.Position.FIXED) === Opts.Position.FIXED ? this.y - this.parent.trans[1] : this.y,
 				dx: number = (this.position & Opts.Position.UNSCALABLE) === Opts.Position.UNSCALABLE ? this.dx * this.parent.scl[0] : this.dx,
@@ -766,7 +799,7 @@ export module CanvasControls {
 			}
 
 			return out;
-		} //isOn
+		} //_isOn
 	} //CanvasButton
 
 	ControllableCanvas.CanvasButton = CanvasButton;

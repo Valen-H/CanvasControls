@@ -15,15 +15,54 @@ export declare module CanvasControls {
         new (...args: any[]): any;
     };
     /**
+     * If `dest` lacks a property that `targ` has then that property is copied into `dest`
+     * @function
+     * @inner
+     * @param {object} dest - destination object
+     * @param {object} targ - base object
+     * @param {Function} condition - inheritance condition
+     * @returns {object} destination object
+     */
+    function inherit(dest: {}, targ: {}, condition?: Function): {};
+    /**
      * Restrict number's range
      * @function
      * @inner
      * @param {number} n - target number
      * @param {number} m - minimum number
      * @param {number} M - maximum number
+     * @param {number} p=0 - precision
      * @returns {number} bound number
      */
-    function bound(n: number, m: number, M: number): number;
+    function bound(n: number, m: number, M: number, p?: number): number;
+    /**
+     * Downspeed incrementation
+     * @param {number} n - number
+     * @param {number} m - minimum
+     * @param {number} M - Maximum
+     * @param {number} op - operation
+     * @returns {number} n
+     */
+    function block(n: number, m: number, M: number, op: number): number;
+    /**
+     * Calculate distance between 2 points
+     * @param {number[]} Xs - X coordinates
+     * @param {number[]} Ys - Y coordinates
+     * @returns {number} distance
+     * @function
+     * @inner
+     */
+    function dist(Xs: number[], Ys: number[]): number;
+    /**
+     * Checks if pointer is inside an area
+     * @param {number[]} box - x,y,dx,dy
+     * @param {number[]} point - x,y
+     * @param {number} sensitivity - extra boundary
+     * @returns boolean
+     * @inner
+     * @function
+     */
+    function isWithin(box: number[], point: number[], sensitivity?: number): boolean;
     /**
      * A holder for all Options
      * @namespace
@@ -53,24 +92,24 @@ export declare module CanvasControls {
          */
         interface ControllableCanvasOptions {
             target: HTMLCanvasElement;
-            trans: number[];
-            scl: number[];
-            dragEnabled: boolean;
-            pinchEnabled: boolean;
-            wheelEnabled: boolean;
-            panEnabled: boolean;
-            tiltEnabled: boolean;
-            eventsReversed: boolean;
-            useButton: number;
-            scaleMode: number;
-            transBounds: number[];
-            sclBounds: number[];
-            transSpeed: number;
-            sclSpeed: number;
-            touchSensitivity: number;
-            clickSensitivity: number;
-            _adapts: ControllableCanvasAdapters;
-            wgets: Set<CanvasButton>;
+            trans?: number[];
+            scl?: number[];
+            dragEnabled?: boolean;
+            pinchEnabled?: boolean;
+            wheelEnabled?: boolean;
+            panEnabled?: boolean;
+            tiltEnabled?: boolean;
+            eventsReversed?: boolean;
+            useButton?: number;
+            scaleMode?: number;
+            transBounds?: number[];
+            sclBounds?: number[];
+            transSpeed?: number;
+            sclSpeed?: number;
+            touchSensitivity?: number;
+            clickSensitivity?: number;
+            _adapts?: ControllableCanvasAdapters;
+            wgets?: Set<CanvasButton>;
             [prop: string]: any;
         }
         /**
@@ -117,10 +156,10 @@ export declare module CanvasControls {
             y: number;
             dx: number;
             dy: number;
-            index: number;
+            index?: number;
             parent: ControllableCanvas;
-            enabled: boolean;
-            position: number;
+            enabled?: boolean;
+            position?: number;
             [prop: string]: any;
         }
         enum UseButton {
@@ -195,6 +234,7 @@ export declare module CanvasControls {
         touchSensitivity: number;
         clickSensitivity: number;
         wgets: Set<CanvasButton>;
+        private _zoomChanged;
         private _mobile;
         private _pressed;
         private _clktime;
@@ -314,7 +354,7 @@ export declare module CanvasControls {
          * @param {number[]} relativeCoords
          * @method
          */
-        isOn(relativeCoords: number[]): boolean;
+        _isOn(relativeCoords: number[]): boolean;
     }
     /**
      * A class offering mathematical Vector utilities
