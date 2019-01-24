@@ -235,7 +235,7 @@ export module CanvasControls {
 		type: string;
 	};
 
-
+	
 	/**
 	 * A wrapper for the targeted canvas element
 	 * @class
@@ -290,8 +290,8 @@ export module CanvasControls {
 		private _pressed: boolean = false;
 		private _clktime: number = 0;
 		_adapts: Opts.ControllableCanvasAdapters;
-		private _coordinates: number[] = [];
-		private _touches: number[][] = [];
+		private _coordinates: number[] = [ ];
+		private _touches: number[][] = [ ];
 
 		private static _linepix: number = 10;
 		static CanvasButton: Class;
@@ -337,7 +337,7 @@ export module CanvasControls {
 		 */
 		constructor(opts: Opts.ControllableCanvasOptions = ControllableCanvas.defaultOpts) {
 			inherit(opts, ControllableCanvas.defaultOpts);
-
+			
 			if (!(opts.target instanceof HTMLCanvasElement)) {
 				throw Errors.ENOTCANV;
 			} else if ([opts.trans, opts.scl, opts.transBounds, opts.sclBounds].some(arr => !(arr instanceof Array || <any>arr instanceof Float32Array || <any>arr instanceof Float64Array) || arr.length < 2 || Array.from(arr).some((num: any) => isNaN(num) || num === ''))) {
@@ -351,12 +351,12 @@ export module CanvasControls {
 			} else if (!(opts.pin instanceof Array || <any>opts.pin instanceof Float32Array || <any>opts.pin instanceof Float64Array) || opts.pin.length < 2 || Array.from(opts.pin).some((num: any) => isNaN(num) || num === '')) {
 				throw Errors.ENOTNUMARR2;
 			}
-
+			
 			this.target = opts.target;
 			this.context = this.target.getContext("2d");
 			this.keybinds = new KeyBind(this.target, opts.keysEnabled);
-
-			this._adapts = <Opts.ControllableCanvasAdapters>{};
+			
+			this._adapts = <Opts.ControllableCanvasAdapters>{ };
 			inherit(this._adapts, opts._adapts);
 
 			this.transSpeed = opts.transSpeed * 1;
@@ -383,7 +383,7 @@ export module CanvasControls {
 
 			this._pressed = false;
 			this._coordinates = [0, 0];
-			this._touches = [];
+			this._touches = [ ];
 			this._mobile = ControllableCanvas.isMobile;
 			if (!ControllableCanvas._linepix) ControllableCanvas._linepix = ControllableCanvas.lineToPix;
 			Object.defineProperty(this.target, "_cc_", {
@@ -480,34 +480,50 @@ export module CanvasControls {
 		} //scale
 
 		private _mobileAdapt(): void {
-			if (!this._adapts.drag && this.dragEnabled) {
-				this.target.addEventListener("touchstart", (e: TouchEvent) => ControllableCanvas.dragMobileStart(e, this), { passive: false });
-				this.target.addEventListener("touchmove", this._adapts.pinch = this._adapts.drag = (e: TouchEvent) => ControllableCanvas.dragMobileMove(e, this), { passive: false });
-				this.target.addEventListener("touchend", (e: TouchEvent) => ControllableCanvas.dragMobileEnd(e, this), { passive: false });
-				this.target.addEventListener("touchcancel", (e: TouchEvent) => ControllableCanvas.dragMobileEnd(e, this), { passive: false });
-			}
-			if (!this._adapts.tilt && this.tiltEnabled) {
-
-			}
-		} //_mobileAdapt
-		private _pcAdapt(): void {
-			if (!this._adapts.drag && this.dragEnabled) {
-				this.target.addEventListener("mousemove", this._adapts.drag = (e: MouseEvent) => ControllableCanvas.dragPC(e, this));
-				this.target.addEventListener("mousedown", (e?: MouseEvent) => this._pressed = true);
-				this.target.addEventListener("mouseup", (e?: MouseEvent) => this._pressed = false);
-				this.target.addEventListener("mouseout", (e?: MouseEvent) => this._pressed = false);
-				if ((this.useButton & Opts.UseButton.USERIGHT) === Opts.UseButton.USERIGHT) this.target.addEventListener("contextmenu", (e: MouseEvent) => e.preventDefault(), { capture: true, passive: false });
-			}
-			if (!this._adapts.wheel && this.wheelEnabled) {
-				this.target.addEventListener("wheel", this._adapts.wheel = (e: WheelEvent) => ControllableCanvas.wheel(e, this));
+			if (!(this._adapts.drag || this._adapts.pinch) && this.dragEnabled) {
+				this.target.addEventListener("touchstart", (e: TouchEvent): void => ControllableCanvas.dragMobileStart(e, this), { passive: false });
+				this.target.addEventListener("touchmove", this._adapts.pinch = this._adapts.drag = (e: TouchEvent): void => ControllableCanvas.dragMobileMove(e, this), { passive: false });
+				this.target.addEventListener("touchend", (e: TouchEvent): void => ControllableCanvas.dragMobileEnd(e, this), { passive: false });
+				this.target.addEventListener("touchcancel", (e: TouchEvent): void => ControllableCanvas.dragMobileEnd(e, this), { passive: false });
 			}
 			if (!this._adapts.tilt && this.tiltEnabled) {
 				//TODO
 			}
-			if (!this._adapts.click) {
-				this.target.addEventListener("click", this._adapts.click = (e: MouseEvent) => ControllableCanvas.clickPC(e, this));
+		} //_mobileAdapt
+		private _pcAdapt(): void {
+			if (!(this._adapts.drag || this._adapts.click) && this.dragEnabled) {
+				this.target.addEventListener("mousemove", this._adapts.drag = (e: MouseEvent): void => ControllableCanvas.dragPC(e, this));
+				this.target.addEventListener("mousedown", (e?: MouseEvent): void => {
+					this._clktime = Date.now();
+					this._pressed = true;
+				});
+				this.target.addEventListener("mouseup", this._adapts.click = (e?: MouseEvent): void => ControllableCanvas.clickPC(e, this));
+				//@ts-ignore
+				this.target.addEventListener("mouseout", (e?: MouseEvent): void => this._adapts.click(e));
+				if ((this.useButton & Opts.UseButton.USERIGHT) === Opts.UseButton.USERIGHT) this.target.addEventListener("contextmenu", (e: MouseEvent) => e.preventDefault(), { capture: true, passive: false });
+			}
+			if (!this._adapts.wheel && this.wheelEnabled) {
+				this.target.addEventListener("wheel", this._adapts.wheel = (e: WheelEvent): void => ControllableCanvas.wheel(e, this));
+			}
+			if (!this._adapts.tilt && this.tiltEnabled) {
+				//TODO
 			}
 		} //_pcAdapt
+
+		private static clickPC(event: MouseEvent, cc: ControllableCanvas): void {
+			if (Date.now() - cc._clktime <= cc.clickSensitivity) {
+				let coords: number[] = [(event.clientX - cc.target.offsetLeft - cc.trans[0]) / cc.scl[0], (event.clientY - cc.target.offsetTop - cc.trans[1]) / cc.scl[1]],
+					sorted = Array.from(cc.wgets.entries()).map((s: CanvasButton[]) => s[1]).sort((a: CanvasButton, b: CanvasButton) => b._id - a._id),
+					ret: boolean = false;
+
+				for (let butt of sorted) {
+					butt.enabled && butt._isOn(coords) && (ret = butt.click(coords));
+					if (ret) break;
+				}
+			}
+			cc._clktime = 0;
+			cc._pressed = false;
+		} //clickPC
 
 		private static dragPC(event: MouseEvent, cc: ControllableCanvas): void {
 			event.preventDefault();
@@ -523,6 +539,7 @@ export module CanvasControls {
 			}
 
 			if (cc._pressed) {
+				cc._clktime = 0;
 				cc.translate(event.movementX * cc.transSpeed, event.movementY * cc.transSpeed);
 			}
 
@@ -593,7 +610,7 @@ export module CanvasControls {
 						ntouches: number[] = itouches.map((i: number) => i * (1 - d));
 
 					cc.scale(d);
-					if (cc._zoomChanged.every((zm: boolean): boolean => zm)) cc.translate(...ntouches);
+					if (cc._zoomChanged.every((zm: boolean): boolean => zm))  cc.translate(...ntouches);
 				}
 				inh();
 			}
@@ -671,19 +688,8 @@ export module CanvasControls {
 			cc.scale(d);
 			if (cc._zoomChanged.every((zm: boolean): boolean => zm)) cc.translate(...coords.map((c: number) => c * (1 - d)));
 		} //wheel
-
-		private static clickPC(event: MouseEvent, cc: ControllableCanvas): void {
-			let coords: number[] = [(event.clientX - cc.target.offsetLeft - cc.trans[0]) / cc.scl[0], (event.clientY - cc.target.offsetTop - cc.trans[1]) / cc.scl[1]],
-				sorted = Array.from(cc.wgets.entries()).map((s: CanvasButton[]) => s[1]).sort((a: CanvasButton, b: CanvasButton) => b._id - a._id),
-				ret: boolean = false;
-
-			for (let butt of sorted) {
-				butt.enabled && butt._isOn(coords) && (ret = butt.click(coords));
-				if (ret) break;
-			}
-		} //clickPC
-
-
+		
+		
 		private static get isMobile(): boolean {
 			if (navigator.userAgent.match(/Android/i) || navigator.userAgent.match(/webOS/i)
 				|| navigator.userAgent.match(/iPhone/i) || navigator.userAgent.match(/iPad/i)
@@ -694,7 +700,7 @@ export module CanvasControls {
 				return false;
 			}
 		} //isMobile
-
+		
 		private static get lineToPix(): number {
 			let r: number,
 				iframe: HTMLIFrameElement = document.createElement("iframe");
@@ -710,7 +716,7 @@ export module CanvasControls {
 			document.body.removeChild(iframe);
 			return r;
 		} //lineToPix
-
+		
 		private static fixDelta(mode: number, deltaY: number): number {
 			if (mode === 1) {
 				return ControllableCanvas._linepix * deltaY;
@@ -726,9 +732,9 @@ export module CanvasControls {
 	 * A class to control keyboard events
 	 */
 	export class KeyBind {
-		press: Key[] = [];
-		down: Key[] = [];
-		up: Key[] = [];
+		press: Key[] = [ ];
+		down: Key[] = [ ];
+		up: Key[] = [ ];
 		element: HTMLElement;
 		_bound: boolean = false;
 		arrowMoveSpeed: number;
@@ -737,7 +743,7 @@ export module CanvasControls {
 		arrowMoveSpeedupEnabled: boolean = true;
 		arrowBindings: {
 			[key: string]: number[];
-		} = {};
+		} = { };
 
 		static _idcntr = 0;
 		static arrowMoveSpeed: number = 5;
@@ -761,7 +767,7 @@ export module CanvasControls {
 			this.arrowMoveSpeedMax = KeyBind.arrowMoveSpeedMax;
 			bind && this.bind();
 		} //ctor
-
+		
 		static arrowMove(event: KeyboardEvent, type: string): boolean {
 			if (type === "keydown") {
 				event.target["_cc_"].translate(this.arrowMoveSpeed * this.arrowBindings[event.key][0], this.arrowMoveSpeed * this.arrowBindings[event.key][1]);
@@ -978,7 +984,7 @@ export module CanvasControls {
 	export class Vector {
 		props: number[];
 
-		constructor(props: number[] = []) {
+		constructor(props: number[] = [ ]) {
 			this.props = Array.from(props.map(Number));
 		} //ctor
 
@@ -1035,7 +1041,7 @@ export module CanvasControls {
 	 * @prop {HTMLElement[]} resources - All HTML resource elements with "load" listeners that will be loaded. like: audio/img
 	 */
 	export class ResourceLoader {
-		resources: HTMLElement[] = [];
+		resources: HTMLElement[] = [ ];
 		_loadcntr: number = 0;
 
 		constructor(resources: HTMLElement[], onload?: (res?: HTMLElement, load?: number) => void, autobind: boolean = false) {
@@ -1071,7 +1077,7 @@ export module CanvasControls {
 		 * @returns {ResourceLoader} the loader
 		 */
 		static images(urlist: string[], onload?: (res?: HTMLElement, load?: number) => void, autobind: boolean = true): ResourceLoader {
-			let imglist: HTMLImageElement[] = [];
+			let imglist: HTMLImageElement[] = [ ];
 
 			for (let url of urlist) {
 				let img = new Image();
@@ -1091,7 +1097,7 @@ export module CanvasControls {
 		 * @returns {ResourceLoader} the loader
 		 */
 		static audios(urlist: string[], onload?: (res?: HTMLElement, load?: number) => void, autobind: boolean = true): ResourceLoader {
-			let audiolist: HTMLAudioElement[] = [];
+			let audiolist: HTMLAudioElement[] = [ ];
 
 			for (let url of urlist) {
 				let audio = new Audio(url);

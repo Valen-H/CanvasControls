@@ -309,12 +309,12 @@ export declare module CanvasControls {
         scale(x?: number, y?: number, abs?: boolean): number[];
         private _mobileAdapt;
         private _pcAdapt;
+        private static clickPC;
         private static dragPC;
         private static dragMobileMove;
         private static dragMobileStart;
         private static dragMobileEnd;
         private static wheel;
-        private static clickPC;
         private static readonly isMobile;
         private static readonly lineToPix;
         private static fixDelta;
