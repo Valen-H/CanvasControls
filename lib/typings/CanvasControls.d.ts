@@ -81,6 +81,7 @@ export declare module CanvasControls {
          * @member {boolean} dragEnabled=false - Enable translation on drag
          * @member {boolean} pinchEnabled=false - Enable scaling on 2-finger pinch (1 finger only shall move)
          * @member {boolean} wheelEnabled=false - Enable scaling on mouse wheel
+         * @prop {boolean} keysEnabled=false - Enable keyabord events listener
          * @member {boolean} panEnabled=false - Enable translation based on mouse/finger distance from pin (pseudo-center)
          * @member {boolean} tiltEnabled=false - Enable translation on device movement
          * @member {boolean} eventsReversed=false - Toggle reverse-operations
@@ -97,6 +98,7 @@ export declare module CanvasControls {
             dragEnabled?: boolean;
             pinchEnabled?: boolean;
             wheelEnabled?: boolean;
+            keysEnabled?: boolean;
             panEnabled?: boolean;
             tiltEnabled?: boolean;
             eventsReversed?: boolean;
@@ -189,6 +191,15 @@ export declare module CanvasControls {
         const EISALR: ReferenceError;
     }
     /**
+     * Type of KeyBind
+     */
+    type Key = {
+        key: string;
+        callback: (event: KeyboardEvent, type: string) => boolean;
+        id: number;
+        type: string;
+    };
+    /**
      * A wrapper for the targeted canvas element
      * @class
      * @implements {Opts.ControllableCanvasOptions}
@@ -201,6 +212,7 @@ export declare module CanvasControls {
      * @prop {boolean} dragEnabled=false - Enable translation on drag
      * @prop {boolean} pinchEnabled=false - Enable scaling on 2-finger pinch (both fingers shall move)
      * @prop {boolean} wheelEnabled=false - Enable scaling on mouse wheel
+     * @prop {boolean} keysEnabled=false - Enable keyabord events listener
      * @prop {boolean} panEnabled=false - Enable translation based on mouse/finger distance from pin (pseudo-center)
      * @prop {boolean} tiltEnabled=false - Enable translation on device movement
      * @prop {boolean} eventsReversed=false - Toggle reverse-operations
@@ -224,6 +236,7 @@ export declare module CanvasControls {
         dragEnabled: boolean;
         pinchEnabled: boolean;
         wheelEnabled: boolean;
+        keysEnabled: boolean;
         panEnabled: boolean;
         tiltEnabled: boolean;
         eventsReversed: boolean;
@@ -234,6 +247,7 @@ export declare module CanvasControls {
         touchSensitivity: number;
         clickSensitivity: number;
         wgets: Set<CanvasButton>;
+        keybinds: KeyBind;
         private _zoomChanged;
         private _mobile;
         private _pressed;
@@ -304,6 +318,67 @@ export declare module CanvasControls {
         private static readonly isMobile;
         private static readonly lineToPix;
         private static fixDelta;
+    }
+    /**
+     * A class to control keyboard events
+     */
+    class KeyBind {
+        press: Key[];
+        down: Key[];
+        up: Key[];
+        element: HTMLElement;
+        _bound: boolean;
+        arrowMoveSpeed: number;
+        arrowMoveSpeedup: number;
+        arrowMoveSpeedMax: number;
+        arrowMoveSpeedupEnabled: boolean;
+        arrowBindings: {
+            [key: string]: number[];
+        };
+        static _idcntr: number;
+        static arrowMoveSpeed: number;
+        static arrowMoveSpeedup: number;
+        static arrowMoveSpeedMax: number;
+        static arrowMoveSpeedupEnabled: boolean;
+        static arrowBindings: {
+            [key: string]: number[];
+        };
+        constructor(element: HTMLElement, bind?: boolean);
+        static arrowMove(event: KeyboardEvent, type: string): boolean;
+        bindArrows(): void;
+        /**
+         * Bind key event listeners
+         * @method
+         * @returns {boolean}
+         */
+        bind(): boolean;
+        _handler(type: string, event: KeyboardEvent): boolean;
+        /**
+         * @method
+         * @param {string} key
+         * @param {Function} callback - cb(event)
+         * @returns {Key}
+         */
+        registerKeypress(key: string, callback: (event: KeyboardEvent, type: string) => boolean): Key;
+        /**
+         * @method
+         * @param {string} key
+         * @param {Function} callback - cb(event)
+         * @returns {Key}
+         */
+        registerKeydown(key: string, callback: (event: KeyboardEvent, type: string) => boolean): Key;
+        /**
+         * @method
+         * @param {string} key
+         * @param {Function} callback - cb(event)
+         * @returns {Key}
+         */
+        registerKeyup(key: string, callback: (event: KeyboardEvent, type: string) => boolean): Key;
+        /**
+         * @method
+         * @param {Key} key
+         */
+        unregister(key: Key | number | string, repl: Key): Key | Key[] | boolean;
     }
     /**
      * A widget-making class for canvas

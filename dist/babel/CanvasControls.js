@@ -65,6 +65,8 @@ var CanvasControls;
     return dest;
   } //inherit
 
+
+  CanvasControls.inherit = inherit;
   /**
    * Restrict number's range
    * @function
@@ -72,16 +74,42 @@ var CanvasControls;
    * @param {number} n - target number
    * @param {number} m - minimum number
    * @param {number} M - maximum number
+   * @param {number} p=0 - precision
    * @returns {number} bound number
    */
 
-
   function bound(n, m, M) {
-    return n > M ? M : n < m ? m : n;
+    var p = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : 0;
+    return n > M + p ? M : n < m - p ? m : n;
   } //bound
 
 
   CanvasControls.bound = bound;
+  /**
+   * Downspeed incrementation
+   * @param {number} n - number
+   * @param {number} m - minimum
+   * @param {number} M - Maximum
+   * @param {number} op - operation
+   * @returns {number} n
+   */
+
+  function block(n, m, M, op) {
+    if (n > M && op > 0) {
+      return n;
+    } else if (n > M) {
+      return n + op;
+    } else if (n < m && op < 0) {
+      return n;
+    } else if (n < m) {
+      return n + op;
+    } else {
+      return n + op;
+    }
+  } //block
+
+
+  CanvasControls.block = block;
   /**
    * Calculate distance between 2 points
    * @param {number[]} Xs - X coordinates
@@ -99,6 +127,8 @@ var CanvasControls;
     }));
   } //dist
 
+
+  CanvasControls.dist = dist;
   /**
    * Checks if pointer is inside an area
    * @param {number[]} box - x,y,dx,dy
@@ -109,17 +139,17 @@ var CanvasControls;
    * @function
    */
 
-
   function isWithin(box, point) {
     var sensitivity = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : .5;
     return box[0] - sensitivity <= point[0] && box[0] + box[2] + sensitivity >= point[0] && box[1] - sensitivity <= point[1] && box[1] + box[3] + sensitivity >= point[1];
   } //isWithin
 
+
+  CanvasControls.isWithin = isWithin;
   /**
    * A holder for all Options
    * @namespace
    */
-
 
   var Opts;
 
@@ -180,6 +210,7 @@ var CanvasControls;
    * @prop {boolean} dragEnabled=false - Enable translation on drag
    * @prop {boolean} pinchEnabled=false - Enable scaling on 2-finger pinch (both fingers shall move)
    * @prop {boolean} wheelEnabled=false - Enable scaling on mouse wheel
+   * @prop {boolean} keysEnabled=false - Enable keyabord events listener
    * @prop {boolean} panEnabled=false - Enable translation based on mouse/finger distance from pin (pseudo-center)
    * @prop {boolean} tiltEnabled=false - Enable translation on device movement
    * @prop {boolean} eventsReversed=false - Toggle reverse-operations
@@ -214,6 +245,7 @@ var CanvasControls;
       this.dragEnabled = false;
       this.pinchEnabled = false;
       this.wheelEnabled = false;
+      this.keysEnabled = false;
       this.panEnabled = false; //OBS
 
       this.tiltEnabled = false; //OBS
@@ -225,6 +257,7 @@ var CanvasControls;
       this.sclSpeed = 1;
       this.touchSensitivity = .5;
       this.clickSensitivity = 800;
+      this._zoomChanged = [false, false];
       this._mobile = false;
       this._pressed = false;
       this._clktime = 0;
@@ -254,6 +287,7 @@ var CanvasControls;
 
       this.target = opts.target;
       this.context = this.target.getContext("2d");
+      this.keybinds = new KeyBind(this.target, opts.keysEnabled);
       this._adapts = {};
       inherit(this._adapts, opts._adapts);
       this.transSpeed = opts.transSpeed * 1;
@@ -281,6 +315,12 @@ var CanvasControls;
       this._touches = [];
       this._mobile = ControllableCanvas.isMobile;
       if (!ControllableCanvas._linepix) ControllableCanvas._linepix = ControllableCanvas.lineToPix;
+      Object.defineProperty(this.target, "_cc_", {
+        value: this,
+        enumerable: false,
+        writable: false,
+        configurable: true
+      });
     } //ctor
 
 
@@ -382,9 +422,20 @@ var CanvasControls;
         if (this.eventsReversed) by = by.map(function (b) {
           return -b;
         });
-        return this.scl = this.scl.map(function (scl, idx) {
-          return bound(Number(!abs ? scl * by[idx] : by[idx]), _this2.sclBounds[idx], _this2.sclBounds[idx + 2]);
-        });
+
+        if (!abs) {
+          var nscl = this.scl.map(function (scl, idx) {
+            return scl * by[idx];
+          });
+          nscl = [nscl[0] - this.scl[0], nscl[1] - this.scl[1]];
+          this._zoomChanged = [this.scl[0] !== block(this.scl[0], this.sclBounds[0], this.sclBounds[2], nscl[0]), this.scl[1] !== block(this.scl[1], this.sclBounds[1], this.sclBounds[3], nscl[1])];
+          return this.scl = [block(this.scl[0], this.sclBounds[0], this.sclBounds[2], nscl[0]), block(this.scl[1], this.sclBounds[1], this.sclBounds[3], nscl[1])];
+        } else {
+          this._zoomChanged = [this.scl[0] !== bound(this.scl[0], this.sclBounds[0], this.sclBounds[2]), this.scl[1] !== bound(this.scl[1], this.sclBounds[1], this.sclBounds[3])];
+          return this.scl = this.scl.map(function (scl, idx) {
+            return bound(scl * by[idx], _this2.sclBounds[idx], _this2.sclBounds[idx + 2]);
+          });
+        }
       } //scale
 
     }, {
@@ -433,6 +484,9 @@ var CanvasControls;
           this.target.addEventListener("mouseup", function (e) {
             return _this4._pressed = false;
           });
+          this.target.addEventListener("mouseout", function (e) {
+            return _this4._pressed = false;
+          });
           if ((this.useButton & Opts.UseButton.USERIGHT) === Opts.UseButton.USERIGHT) this.target.addEventListener("contextmenu", function (e) {
             return e.preventDefault();
           }, {
@@ -447,7 +501,8 @@ var CanvasControls;
           });
         }
 
-        if (!this._adapts.tilt && this.tiltEnabled) {}
+        if (!this._adapts.tilt && this.tiltEnabled) {//TODO
+        }
 
         if (!this._adapts.click) {
           this.target.addEventListener("click", this._adapts.click = function (e) {
@@ -497,7 +552,7 @@ var CanvasControls;
         try {
           for (var _iterator = cc.wgets[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
             var butt = _step.value;
-            butt.enabled && butt.isOn(rel = coords.map(function (c, idx) {
+            butt.enabled && butt._isOn(rel = coords.map(function (c, idx) {
               return (c - cc.trans[idx]) / cc.scl[idx];
             })) && !butt.pstate && (butt.pstate = true, ret = butt.focus(rel));
             if (ret) break;
@@ -592,7 +647,8 @@ var CanvasControls;
                 ntouches = itouches.map(function (i, idx) {
               return i * (1 - d[idx]);
             });
-            cc.translate.apply(cc, _toConsumableArray(ntouches));
+            if (cc._zoomChanged[0]) cc.translate(ntouches[0]);
+            if (cc._zoomChanged[1]) cc.translate(ntouches[1]);
             cc.scale(d[0], d[1]);
           } else {
             //@ts-ignore
@@ -606,8 +662,10 @@ var CanvasControls;
               return i * (1 - _d);
             });
 
-            cc.translate.apply(cc, _toConsumableArray(_ntouches));
             cc.scale(_d);
+            if (cc._zoomChanged.every(function (zm) {
+              return zm;
+            })) cc.translate.apply(cc, _toConsumableArray(_ntouches));
           }
 
           inh();
@@ -648,7 +706,7 @@ var CanvasControls;
               try {
                 for (var _iterator3 = sorted[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
                   var butt = _step3.value;
-                  butt.enabled && butt.isOn(coords) && !butt.pstate && (butt.pstate = true, ret = butt.focus(coords));
+                  butt.enabled && butt._isOn(coords) && !butt.pstate && (butt.pstate = true, ret = butt.focus(coords));
                   if (ret) break;
                 }
               } catch (err) {
@@ -718,7 +776,7 @@ var CanvasControls;
             try {
               for (var _iterator6 = sorted[Symbol.iterator](), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
                 var _butt = _step6.value;
-                _butt.enabled && _butt.isOn(coords);
+                _butt.enabled && _butt._isOn(coords);
               }
             } catch (err) {
               _didIteratorError6 = true;
@@ -758,7 +816,7 @@ var CanvasControls;
           try {
             for (var _iterator5 = sorted[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
               var butt = _step5.value;
-              butt.enabled && butt.isOn(coords) && (ret = butt.click(coords));
+              butt.enabled && butt._isOn(coords) && (ret = butt.click(coords));
               if (ret) break;
             }
           } catch (err) {
@@ -796,10 +854,12 @@ var CanvasControls;
         event.preventDefault();
         var d = 1 - cc.sclSpeed * ControllableCanvas.fixDelta(event.deltaMode, event.deltaY) / cc.min,
             coords = [event.clientX - cc.target.offsetLeft - cc.trans[0], event.clientY - cc.target.offsetTop - cc.trans[1]];
-        cc.translate.apply(cc, _toConsumableArray(coords.map(function (c) {
+        cc.scale(d);
+        if (cc._zoomChanged.every(function (zm) {
+          return zm;
+        })) cc.translate.apply(cc, _toConsumableArray(coords.map(function (c) {
           return c * (1 - d);
         })));
-        cc.scale(d);
       } //wheel
 
     }, {
@@ -819,7 +879,7 @@ var CanvasControls;
         try {
           for (var _iterator7 = sorted[Symbol.iterator](), _step7; !(_iteratorNormalCompletion7 = (_step7 = _iterator7.next()).done); _iteratorNormalCompletion7 = true) {
             var butt = _step7.value;
-            butt.enabled && butt.isOn(coords) && (ret = butt.click(coords));
+            butt.enabled && butt._isOn(coords) && (ret = butt.click(coords));
             if (ret) break;
           }
         } catch (err) {
@@ -859,7 +919,7 @@ var CanvasControls;
         } else {
           return false;
         }
-      } //detectMobile
+      } //isMobile
 
     }, {
       key: "lineToPix",
@@ -898,6 +958,7 @@ var CanvasControls;
     dragEnabled: false,
     pinchEnabled: false,
     wheelEnabled: false,
+    keysEnabled: false,
     panEnabled: false,
     tiltEnabled: false,
     eventsReversed: false,
@@ -920,6 +981,216 @@ var CanvasControls;
     wgets: new Set()
   };
   CanvasControls.ControllableCanvas = ControllableCanvas;
+  /**
+   * A class to control keyboard events
+   */
+
+  var KeyBind =
+  /*#__PURE__*/
+  function () {
+    function KeyBind(element) {
+      var bind = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
+
+      _classCallCheck(this, KeyBind);
+
+      this.press = [];
+      this.down = [];
+      this.up = [];
+      this._bound = false;
+      this.arrowMoveSpeedupEnabled = true;
+      this.arrowBindings = {};
+      this.element = element;
+      Object.assign(this.arrowBindings, KeyBind.arrowBindings);
+      this.arrowMoveSpeed = KeyBind.arrowMoveSpeed;
+      this.arrowMoveSpeedup = KeyBind.arrowMoveSpeedup;
+      this.arrowMoveSpeedMax = KeyBind.arrowMoveSpeedMax;
+      bind && this.bind();
+    } //ctor
+
+
+    _createClass(KeyBind, [{
+      key: "bindArrows",
+      //arrowMove
+      value: function bindArrows() {
+        for (var i in this.arrowBindings) {
+          this.registerKeydown(i, KeyBind.arrowMove.bind(this));
+          this.registerKeyup(i, KeyBind.arrowMove.bind(this));
+        }
+
+        this.bindArrows = function () {};
+      } //bindArrows
+
+      /**
+       * Bind key event listeners
+       * @method
+       * @returns {boolean}
+       */
+
+    }, {
+      key: "bind",
+      value: function bind() {
+        var _this5 = this;
+
+        if (!this._bound) {
+          this.element.addEventListener("keypress", function (event) {
+            return _this5._handler.bind(_this5)("keypress", event);
+          }, false);
+          this.element.addEventListener("keyup", function (event) {
+            return _this5._handler.bind(_this5)("keyup", event);
+          }, false);
+          this.element.addEventListener("keydown", function (event) {
+            return _this5._handler.bind(_this5)("keydown", event);
+          }, false);
+          return this._bound = true;
+        }
+
+        return false;
+      } //bind
+
+    }, {
+      key: "_handler",
+      value: function _handler(type, event) {
+        var handled = false;
+        this[type.replace("key", '')].forEach(function (key) {
+          if (key.key === event.key) {
+            handled = !key.callback(event, type);
+          }
+        });
+        return handled;
+      } //_handler
+
+      /**
+       * @method
+       * @param {string} key
+       * @param {Function} callback - cb(event)
+       * @returns {Key}
+       */
+
+    }, {
+      key: "registerKeypress",
+      value: function registerKeypress(key, callback) {
+        var out;
+        this.press.push(out = {
+          key: key,
+          callback: callback,
+          id: KeyBind._idcntr++,
+          type: "press"
+        });
+        return out;
+      } //registerKeypress
+
+      /**
+       * @method
+       * @param {string} key
+       * @param {Function} callback - cb(event)
+       * @returns {Key}
+       */
+
+    }, {
+      key: "registerKeydown",
+      value: function registerKeydown(key, callback) {
+        var out;
+        this.down.push(out = {
+          key: key,
+          callback: callback,
+          id: KeyBind._idcntr++,
+          type: "down"
+        });
+        return out;
+      } //registerKeydown
+
+      /**
+       * @method
+       * @param {string} key
+       * @param {Function} callback - cb(event)
+       * @returns {Key}
+       */
+
+    }, {
+      key: "registerKeyup",
+      value: function registerKeyup(key, callback) {
+        var out;
+        this.up.push(out = {
+          key: key,
+          callback: callback,
+          id: KeyBind._idcntr++,
+          type: "up"
+        });
+        return out;
+      } //registerKeyup
+
+      /**
+       * @method
+       * @param {Key} key
+       */
+
+    }, {
+      key: "unregister",
+      value: function unregister(key, repl) {
+        if (typeof key === "number") {
+          var idx;
+
+          if ((idx = this.press.findIndex(function (k) {
+            return k.id === key;
+          })) >= 0) {
+            return this.press.splice(idx, 1, repl);
+          } else if ((idx = this.down.findIndex(function (k) {
+            return k.id === key;
+          })) >= 0) {
+            return this.down.splice(idx, 1, repl);
+          } else if ((idx = this.up.findIndex(function (k) {
+            return k.id === key;
+          })) >= 0) {
+            return this.up.splice(idx, 1, repl);
+          } else {
+            return false;
+          }
+        } else if (typeof key === "string") {
+          this.press = this.press.filter(function (k) {
+            return k.key !== key;
+          });
+          this.down = this.down.filter(function (k) {
+            return k.key !== key;
+          });
+          this.up = this.up.filter(function (k) {
+            return k.key !== key;
+          });
+        } else {
+          return this[key.type].splice(this[key.type].findIndex(function (k) {
+            return k.id === key.id;
+          }), 1, repl);
+        }
+      } //unregister
+
+    }], [{
+      key: "arrowMove",
+      value: function arrowMove(event, type) {
+        if (type === "keydown") {
+          event.target["_cc_"].translate(this.arrowMoveSpeed * this.arrowBindings[event.key][0], this.arrowMoveSpeed * this.arrowBindings[event.key][1]);
+          if (this.arrowMoveSpeedupEnabled) this.arrowMoveSpeed = bound(this.arrowMoveSpeed + this.arrowMoveSpeedup, 0, this.arrowMoveSpeedMax);
+        } else {
+          this.arrowMoveSpeed = KeyBind.arrowMoveSpeed;
+        }
+
+        return false;
+      }
+    }]);
+
+    return KeyBind;
+  }(); //KeyBind
+
+
+  KeyBind._idcntr = 0;
+  KeyBind.arrowMoveSpeed = 5;
+  KeyBind.arrowMoveSpeedup = .5;
+  KeyBind.arrowMoveSpeedMax = 20;
+  KeyBind.arrowBindings = {
+    ArrowUp: [0, 1],
+    ArrowDown: [0, -1],
+    ArrowLeft: [1, 0],
+    ArrowRight: [-1, 0]
+  };
+  CanvasControls.KeyBind = KeyBind;
   /**
    * A widget-making class for canvas
    * @memberof ControllableCanvas
@@ -1008,8 +1279,8 @@ var CanvasControls;
        */
 
     }, {
-      key: "isOn",
-      value: function isOn(relativeCoords) {
+      key: "_isOn",
+      value: function _isOn(relativeCoords) {
         var x = (this.position & Opts.Position.FIXED) === Opts.Position.FIXED ? this.x - this.parent.trans[0] : this.x,
             y = (this.position & Opts.Position.FIXED) === Opts.Position.FIXED ? this.y - this.parent.trans[1] : this.y,
             dx = (this.position & Opts.Position.UNSCALABLE) === Opts.Position.UNSCALABLE ? this.dx * this.parent.scl[0] : this.dx,
@@ -1022,7 +1293,7 @@ var CanvasControls;
         }
 
         return out;
-      } //isOn
+      } //_isOn
 
     }]);
 
@@ -1081,17 +1352,17 @@ var CanvasControls;
     _createClass(Vector, [{
       key: "add",
       value: function add(targ) {
-        var _this5 = this;
+        var _this6 = this;
 
         var sub = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 1;
 
         if (targ instanceof Vector) {
           this.props.forEach(function (prop, idx) {
-            _this5.props[idx] += sub * targ[idx];
+            _this6.props[idx] += sub * targ[idx];
           });
         } else {
           this.props.forEach(function (prop, idx) {
-            _this5.props[idx] += sub * targ;
+            _this6.props[idx] += sub * targ;
           });
         }
 
@@ -1109,17 +1380,17 @@ var CanvasControls;
     }, {
       key: "mult",
       value: function mult(targ) {
-        var _this6 = this;
+        var _this7 = this;
 
         var div = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 1;
 
         if (targ instanceof Vector) {
           this.props.forEach(function (prop, idx) {
-            _this6.props[idx] *= Math.pow(targ[idx], div);
+            _this7.props[idx] *= Math.pow(targ[idx], div);
           });
         } else {
           this.props.forEach(function (prop, idx) {
-            _this6.props[idx] *= Math.pow(targ, div);
+            _this7.props[idx] *= Math.pow(targ, div);
           });
         }
 
@@ -1176,13 +1447,13 @@ var CanvasControls;
     _createClass(ResourceLoader, [{
       key: "bind",
       value: function bind(onload) {
-        var _this7 = this;
+        var _this8 = this;
 
         if (onload) this.load = onload;
         this.resources.forEach(function (res) {
           res.addEventListener("load", function () {
-            if (++_this7._loadcntr === _this7.resources.length) {
-              _this7.load(res, _this7._loadcntr);
+            if (++_this8._loadcntr === _this8.resources.length) {
+              _this8.load(res, _this8._loadcntr);
             }
           });
         });

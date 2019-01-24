@@ -118,6 +118,7 @@ export module CanvasControls {
 		 * @member {boolean} dragEnabled=false - Enable translation on drag
 		 * @member {boolean} pinchEnabled=false - Enable scaling on 2-finger pinch (1 finger only shall move)
 		 * @member {boolean} wheelEnabled=false - Enable scaling on mouse wheel
+		 * @prop {boolean} keysEnabled=false - Enable keyabord events listener
 		 * @member {boolean} panEnabled=false - Enable translation based on mouse/finger distance from pin (pseudo-center)
 		 * @member {boolean} tiltEnabled=false - Enable translation on device movement
 		 * @member {boolean} eventsReversed=false - Toggle reverse-operations
@@ -134,6 +135,7 @@ export module CanvasControls {
 			dragEnabled?: boolean;
 			pinchEnabled?: boolean;
 			wheelEnabled?: boolean;
+			keysEnabled?: boolean;
 			panEnabled?: boolean;
 			tiltEnabled?: boolean;
 			eventsReversed?: boolean;
@@ -223,7 +225,17 @@ export module CanvasControls {
 		export const EISALR: ReferenceError = new ReferenceError("Object is already registered.");
 	} //Errors
 
-	
+	/**
+	 * Type of KeyBind
+	 */
+	export type Key = {
+		key: string;
+		callback: (event: KeyboardEvent, type: string) => boolean;
+		id: number;
+		type: string;
+	};
+
+
 	/**
 	 * A wrapper for the targeted canvas element
 	 * @class
@@ -237,6 +249,7 @@ export module CanvasControls {
 	 * @prop {boolean} dragEnabled=false - Enable translation on drag
 	 * @prop {boolean} pinchEnabled=false - Enable scaling on 2-finger pinch (both fingers shall move)
 	 * @prop {boolean} wheelEnabled=false - Enable scaling on mouse wheel
+	 * @prop {boolean} keysEnabled=false - Enable keyabord events listener
 	 * @prop {boolean} panEnabled=false - Enable translation based on mouse/finger distance from pin (pseudo-center)
 	 * @prop {boolean} tiltEnabled=false - Enable translation on device movement
 	 * @prop {boolean} eventsReversed=false - Toggle reverse-operations
@@ -260,6 +273,7 @@ export module CanvasControls {
 		dragEnabled: boolean = false;
 		pinchEnabled: boolean = false;
 		wheelEnabled: boolean = false;
+		keysEnabled: boolean = false;
 		panEnabled: boolean = false;  //OBS
 		tiltEnabled: boolean = false;  //OBS
 		eventsReversed: boolean = false;
@@ -270,13 +284,14 @@ export module CanvasControls {
 		touchSensitivity: number = .5;
 		clickSensitivity: number = 800;
 		wgets: Set<CanvasButton>;
+		keybinds: KeyBind;
 		private _zoomChanged: boolean[] = [false, false];
 		private _mobile: boolean = false;
 		private _pressed: boolean = false;
 		private _clktime: number = 0;
 		_adapts: Opts.ControllableCanvasAdapters;
-		private _coordinates: number[] = [ ];
-		private _touches: number[][] = [ ];
+		private _coordinates: number[] = [];
+		private _touches: number[][] = [];
 
 		private static _linepix: number = 10;
 		static CanvasButton: Class;
@@ -292,6 +307,7 @@ export module CanvasControls {
 			dragEnabled: false,
 			pinchEnabled: false,
 			wheelEnabled: false,
+			keysEnabled: false,
 			panEnabled: false,
 			tiltEnabled: false,
 			eventsReversed: false,
@@ -321,7 +337,7 @@ export module CanvasControls {
 		 */
 		constructor(opts: Opts.ControllableCanvasOptions = ControllableCanvas.defaultOpts) {
 			inherit(opts, ControllableCanvas.defaultOpts);
-			
+
 			if (!(opts.target instanceof HTMLCanvasElement)) {
 				throw Errors.ENOTCANV;
 			} else if ([opts.trans, opts.scl, opts.transBounds, opts.sclBounds].some(arr => !(arr instanceof Array || <any>arr instanceof Float32Array || <any>arr instanceof Float64Array) || arr.length < 2 || Array.from(arr).some((num: any) => isNaN(num) || num === ''))) {
@@ -335,11 +351,12 @@ export module CanvasControls {
 			} else if (!(opts.pin instanceof Array || <any>opts.pin instanceof Float32Array || <any>opts.pin instanceof Float64Array) || opts.pin.length < 2 || Array.from(opts.pin).some((num: any) => isNaN(num) || num === '')) {
 				throw Errors.ENOTNUMARR2;
 			}
-			
+
 			this.target = opts.target;
 			this.context = this.target.getContext("2d");
+			this.keybinds = new KeyBind(this.target, opts.keysEnabled);
 
-			this._adapts = <Opts.ControllableCanvasAdapters>{ };
+			this._adapts = <Opts.ControllableCanvasAdapters>{};
 			inherit(this._adapts, opts._adapts);
 
 			this.transSpeed = opts.transSpeed * 1;
@@ -366,9 +383,15 @@ export module CanvasControls {
 
 			this._pressed = false;
 			this._coordinates = [0, 0];
-			this._touches = [ ];
+			this._touches = [];
 			this._mobile = ControllableCanvas.isMobile;
 			if (!ControllableCanvas._linepix) ControllableCanvas._linepix = ControllableCanvas.lineToPix;
+			Object.defineProperty(this.target, "_cc_", {
+				value: this,
+				enumerable: false,
+				writable: false,
+				configurable: true
+			});
 		} //ctor
 
 		get ratio(): number {
@@ -570,7 +593,7 @@ export module CanvasControls {
 						ntouches: number[] = itouches.map((i: number) => i * (1 - d));
 
 					cc.scale(d);
-					if (cc._zoomChanged.every((zm: boolean): boolean => zm))  cc.translate(...ntouches);
+					if (cc._zoomChanged.every((zm: boolean): boolean => zm)) cc.translate(...ntouches);
 				}
 				inh();
 			}
@@ -653,14 +676,14 @@ export module CanvasControls {
 			let coords: number[] = [(event.clientX - cc.target.offsetLeft - cc.trans[0]) / cc.scl[0], (event.clientY - cc.target.offsetTop - cc.trans[1]) / cc.scl[1]],
 				sorted = Array.from(cc.wgets.entries()).map((s: CanvasButton[]) => s[1]).sort((a: CanvasButton, b: CanvasButton) => b._id - a._id),
 				ret: boolean = false;
-			
+
 			for (let butt of sorted) {
 				butt.enabled && butt._isOn(coords) && (ret = butt.click(coords));
 				if (ret) break;
 			}
 		} //clickPC
-		
-		
+
+
 		private static get isMobile(): boolean {
 			if (navigator.userAgent.match(/Android/i) || navigator.userAgent.match(/webOS/i)
 				|| navigator.userAgent.match(/iPhone/i) || navigator.userAgent.match(/iPad/i)
@@ -671,7 +694,7 @@ export module CanvasControls {
 				return false;
 			}
 		} //isMobile
-		
+
 		private static get lineToPix(): number {
 			let r: number,
 				iframe: HTMLIFrameElement = document.createElement("iframe");
@@ -687,7 +710,7 @@ export module CanvasControls {
 			document.body.removeChild(iframe);
 			return r;
 		} //lineToPix
-		
+
 		private static fixDelta(mode: number, deltaY: number): number {
 			if (mode === 1) {
 				return ControllableCanvas._linepix * deltaY;
@@ -698,6 +721,148 @@ export module CanvasControls {
 			}
 		} //fixDelta
 	} //ControllableCanvas
+
+	/**
+	 * A class to control keyboard events
+	 */
+	export class KeyBind {
+		press: Key[] = [];
+		down: Key[] = [];
+		up: Key[] = [];
+		element: HTMLElement;
+		_bound: boolean = false;
+		arrowMoveSpeed: number;
+		arrowMoveSpeedup: number;
+		arrowMoveSpeedMax: number;
+		arrowMoveSpeedupEnabled: boolean = true;
+		arrowBindings: {
+			[key: string]: number[];
+		} = {};
+
+		static _idcntr = 0;
+		static arrowMoveSpeed: number = 5;
+		static arrowMoveSpeedup: number = .5;
+		static arrowMoveSpeedMax: number = 20;
+		static arrowMoveSpeedupEnabled: boolean;
+		static arrowBindings: {
+			[key: string]: number[];
+		} = {
+				ArrowUp: [0, 1],
+				ArrowDown: [0, -1],
+				ArrowLeft: [1, 0],
+				ArrowRight: [-1, 0]
+			};
+
+		constructor(element: HTMLElement, bind: boolean = false) {
+			this.element = element;
+			Object.assign(this.arrowBindings, KeyBind.arrowBindings);
+			this.arrowMoveSpeed = KeyBind.arrowMoveSpeed;
+			this.arrowMoveSpeedup = KeyBind.arrowMoveSpeedup;
+			this.arrowMoveSpeedMax = KeyBind.arrowMoveSpeedMax;
+			bind && this.bind();
+		} //ctor
+
+		static arrowMove(event: KeyboardEvent, type: string): boolean {
+			if (type === "keydown") {
+				event.target["_cc_"].translate(this.arrowMoveSpeed * this.arrowBindings[event.key][0], this.arrowMoveSpeed * this.arrowBindings[event.key][1]);
+				if (this.arrowMoveSpeedupEnabled) this.arrowMoveSpeed = bound(this.arrowMoveSpeed + this.arrowMoveSpeedup, 0, this.arrowMoveSpeedMax);
+			} else {
+				this.arrowMoveSpeed = KeyBind.arrowMoveSpeed;
+			}
+			return false;
+		} //arrowMove
+
+		bindArrows(): void {
+			for (let i in this.arrowBindings) {
+				this.registerKeydown(i, KeyBind.arrowMove.bind(this));
+				this.registerKeyup(i, KeyBind.arrowMove.bind(this));
+			}
+			this.bindArrows = (): void => { };
+		} //bindArrows
+
+		/**
+		 * Bind key event listeners
+		 * @method
+		 * @returns {boolean}
+		 */
+		bind(): boolean {
+			if (!this._bound) {
+				this.element.addEventListener("keypress", (event: KeyboardEvent): boolean => this._handler.bind(this)("keypress", event), false);
+				this.element.addEventListener("keyup", (event: KeyboardEvent): boolean => this._handler.bind(this)("keyup", event), false);
+				this.element.addEventListener("keydown", (event: KeyboardEvent): boolean => this._handler.bind(this)("keydown", event), false);
+				return this._bound = true;
+			}
+			return false;
+		} //bind
+
+		_handler(type: string, event: KeyboardEvent): boolean {
+			let handled: boolean = false;
+			this[type.replace("key", '')].forEach((key: Key): void => {
+				if (key.key === event.key) {
+					handled = !key.callback(event, type);
+				}
+			});
+			return handled;
+		} //_handler
+
+		/**
+		 * @method
+		 * @param {string} key
+		 * @param {Function} callback - cb(event)
+		 * @returns {Key}
+		 */
+		registerKeypress(key: string, callback: (event: KeyboardEvent, type: string) => boolean): Key {
+			let out: Key;
+			this.press.push(out = { key: key, callback: callback, id: KeyBind._idcntr++, type: "press" });
+			return out;
+		} //registerKeypress
+		/**
+		 * @method
+		 * @param {string} key
+		 * @param {Function} callback - cb(event)
+		 * @returns {Key}
+		 */
+		registerKeydown(key: string, callback: (event: KeyboardEvent, type: string) => boolean): Key {
+			let out: Key;
+			this.down.push(out = { key: key, callback: callback, id: KeyBind._idcntr++, type: "down" });
+			return out;
+		} //registerKeydown
+		/**
+		 * @method
+		 * @param {string} key
+		 * @param {Function} callback - cb(event)
+		 * @returns {Key}
+		 */
+		registerKeyup(key: string, callback: (event: KeyboardEvent, type: string) => boolean): Key {
+			let out: Key;
+			this.up.push(out = { key: key, callback: callback, id: KeyBind._idcntr++, type: "up" });
+			return out;
+		} //registerKeyup
+		/**
+		 * @method
+		 * @param {Key} key
+		 */
+		unregister(key: Key | number | string, repl: Key): Key | Key[] | boolean {
+			if (typeof key === "number") {
+				let idx: number;
+				if ((idx = this.press.findIndex((k: Key): boolean => k.id === key)) >= 0) {
+					return this.press.splice(idx, 1, repl);
+				} else if ((idx = this.down.findIndex((k: Key): boolean => k.id === key)) >= 0) {
+					return this.down.splice(idx, 1, repl);
+				} else if ((idx = this.up.findIndex((k: Key): boolean => k.id === key)) >= 0) {
+					return this.up.splice(idx, 1, repl);
+				} else {
+					return false;
+				}
+			} else if (typeof key === "string") {
+				this.press = this.press.filter((k: Key): boolean => k.key !== key);
+				this.down = this.down.filter((k: Key): boolean => k.key !== key);
+				this.up = this.up.filter((k: Key): boolean => k.key !== key);
+			} else {
+				return this[key.type].splice(this[key.type].findIndex((k: Key): boolean => k.id === key.id), 1, repl);
+			}
+		} //unregister
+	} //KeyBind
 
 	/**
 	 * A widget-making class for canvas
@@ -813,7 +978,7 @@ export module CanvasControls {
 	export class Vector {
 		props: number[];
 
-		constructor(props: number[] = [ ]) {
+		constructor(props: number[] = []) {
 			this.props = Array.from(props.map(Number));
 		} //ctor
 
@@ -870,7 +1035,7 @@ export module CanvasControls {
 	 * @prop {HTMLElement[]} resources - All HTML resource elements with "load" listeners that will be loaded. like: audio/img
 	 */
 	export class ResourceLoader {
-		resources: HTMLElement[] = [ ];
+		resources: HTMLElement[] = [];
 		_loadcntr: number = 0;
 
 		constructor(resources: HTMLElement[], onload?: (res?: HTMLElement, load?: number) => void, autobind: boolean = false) {
@@ -906,7 +1071,7 @@ export module CanvasControls {
 		 * @returns {ResourceLoader} the loader
 		 */
 		static images(urlist: string[], onload?: (res?: HTMLElement, load?: number) => void, autobind: boolean = true): ResourceLoader {
-			let imglist: HTMLImageElement[] = [ ];
+			let imglist: HTMLImageElement[] = [];
 
 			for (let url of urlist) {
 				let img = new Image();
@@ -926,7 +1091,7 @@ export module CanvasControls {
 		 * @returns {ResourceLoader} the loader
 		 */
 		static audios(urlist: string[], onload?: (res?: HTMLElement, load?: number) => void, autobind: boolean = true): ResourceLoader {
-			let audiolist: HTMLAudioElement[] = [ ];
+			let audiolist: HTMLAudioElement[] = [];
 
 			for (let url of urlist) {
 				let audio = new Audio(url);
