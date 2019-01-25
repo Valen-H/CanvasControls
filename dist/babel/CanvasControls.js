@@ -443,7 +443,7 @@ var CanvasControls;
       value: function _mobileAdapt() {
         var _this3 = this;
 
-        if (!this._adapts.drag && this.dragEnabled) {
+        if (!(this._adapts.drag || this._adapts.pinch) && this.dragEnabled) {
           this.target.addEventListener("touchstart", function (e) {
             return ControllableCanvas.dragMobileStart(e, _this3);
           }, {
@@ -466,7 +466,8 @@ var CanvasControls;
           });
         }
 
-        if (!this._adapts.tilt && this.tiltEnabled) {}
+        if (!this._adapts.tilt && this.tiltEnabled) {//TODO
+        }
       } //_mobileAdapt
 
     }, {
@@ -474,18 +475,20 @@ var CanvasControls;
       value: function _pcAdapt() {
         var _this4 = this;
 
-        if (!this._adapts.drag && this.dragEnabled) {
+        if (!(this._adapts.drag || this._adapts.click) && this.dragEnabled) {
           this.target.addEventListener("mousemove", this._adapts.drag = function (e) {
             return ControllableCanvas.dragPC(e, _this4);
           });
           this.target.addEventListener("mousedown", function (e) {
-            return _this4._pressed = true;
+            _this4._clktime = Date.now();
+            _this4._pressed = true;
           });
-          this.target.addEventListener("mouseup", function (e) {
-            return _this4._pressed = false;
-          });
+          this.target.addEventListener("mouseup", this._adapts.click = function (e) {
+            return ControllableCanvas.clickPC(e, _this4);
+          }); //@ts-ignore
+
           this.target.addEventListener("mouseout", function (e) {
-            return _this4._pressed = false;
+            return _this4._adapts.click(e);
           });
           if ((this.useButton & Opts.UseButton.USERIGHT) === Opts.UseButton.USERIGHT) this.target.addEventListener("contextmenu", function (e) {
             return e.preventDefault();
@@ -502,12 +505,6 @@ var CanvasControls;
         }
 
         if (!this._adapts.tilt && this.tiltEnabled) {//TODO
-        }
-
-        if (!this._adapts.click) {
-          this.target.addEventListener("click", this._adapts.click = function (e) {
-            return ControllableCanvas.clickPC(e, _this4);
-          });
         }
       } //_pcAdapt
 
@@ -529,6 +526,47 @@ var CanvasControls;
         return Math.max(this.target.width, this.target.height);
       }
     }], [{
+      key: "clickPC",
+      value: function clickPC(event, cc) {
+        if (Date.now() - cc._clktime <= cc.clickSensitivity) {
+          var coords = [(event.clientX - cc.target.offsetLeft - cc.trans[0]) / cc.scl[0], (event.clientY - cc.target.offsetTop - cc.trans[1]) / cc.scl[1]],
+              sorted = Array.from(cc.wgets.entries()).map(function (s) {
+            return s[1];
+          }).sort(function (a, b) {
+            return b._id - a._id;
+          }),
+              ret = false;
+          var _iteratorNormalCompletion = true;
+          var _didIteratorError = false;
+          var _iteratorError = undefined;
+
+          try {
+            for (var _iterator = sorted[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
+              var butt = _step.value;
+              butt.enabled && butt._isOn(coords) && (ret = butt.click(coords));
+              if (ret) break;
+            }
+          } catch (err) {
+            _didIteratorError = true;
+            _iteratorError = err;
+          } finally {
+            try {
+              if (!_iteratorNormalCompletion && _iterator.return != null) {
+                _iterator.return();
+              }
+            } finally {
+              if (_didIteratorError) {
+                throw _iteratorError;
+              }
+            }
+          }
+        }
+
+        cc._clktime = 0;
+        cc._pressed = false;
+      } //clickPC
+
+    }, {
       key: "dragPC",
       value: function dragPC(event, cc) {
         event.preventDefault();
@@ -542,32 +580,33 @@ var CanvasControls;
         }
 
         if (cc._pressed) {
+          cc._clktime = 0;
           cc.translate(event.movementX * cc.transSpeed, event.movementY * cc.transSpeed);
         }
 
-        var _iteratorNormalCompletion = true;
-        var _didIteratorError = false;
-        var _iteratorError = undefined;
+        var _iteratorNormalCompletion2 = true;
+        var _didIteratorError2 = false;
+        var _iteratorError2 = undefined;
 
         try {
-          for (var _iterator = cc.wgets[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
-            var butt = _step.value;
+          for (var _iterator2 = cc.wgets[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+            var butt = _step2.value;
             butt.enabled && butt._isOn(rel = coords.map(function (c, idx) {
               return (c - cc.trans[idx]) / cc.scl[idx];
             })) && !butt.pstate && (butt.pstate = true, ret = butt.focus(rel));
             if (ret) break;
           }
         } catch (err) {
-          _didIteratorError = true;
-          _iteratorError = err;
+          _didIteratorError2 = true;
+          _iteratorError2 = err;
         } finally {
           try {
-            if (!_iteratorNormalCompletion && _iterator.return != null) {
-              _iterator.return();
+            if (!_iteratorNormalCompletion2 && _iterator2.return != null) {
+              _iterator2.return();
             }
           } finally {
-            if (_didIteratorError) {
-              throw _iteratorError;
+            if (_didIteratorError2) {
+              throw _iteratorError2;
             }
           }
         }
@@ -691,50 +730,50 @@ var CanvasControls;
           Array.from(event.changedTouches).forEach(function (t) {
             return cc._touches[t.identifier] = [t.clientX - cc.target.offsetLeft, t.clientY - cc.target.offsetTop];
           });
-          var _iteratorNormalCompletion2 = true;
-          var _didIteratorError2 = false;
-          var _iteratorError2 = undefined;
+          var _iteratorNormalCompletion3 = true;
+          var _didIteratorError3 = false;
+          var _iteratorError3 = undefined;
 
           try {
-            for (var _iterator2 = event.changedTouches[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
-              var touch = _step2.value;
+            for (var _iterator3 = event.changedTouches[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+              var touch = _step3.value;
               coords = [(touch.clientX - cc.target.offsetLeft - cc.trans[0]) / cc.scl[0], (touch.clientY - cc.target.offsetTop - cc.trans[1]) / cc.scl[1]];
-              var _iteratorNormalCompletion3 = true;
-              var _didIteratorError3 = false;
-              var _iteratorError3 = undefined;
+              var _iteratorNormalCompletion4 = true;
+              var _didIteratorError4 = false;
+              var _iteratorError4 = undefined;
 
               try {
-                for (var _iterator3 = sorted[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
-                  var butt = _step3.value;
+                for (var _iterator4 = sorted[Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
+                  var butt = _step4.value;
                   butt.enabled && butt._isOn(coords) && !butt.pstate && (butt.pstate = true, ret = butt.focus(coords));
                   if (ret) break;
                 }
               } catch (err) {
-                _didIteratorError3 = true;
-                _iteratorError3 = err;
+                _didIteratorError4 = true;
+                _iteratorError4 = err;
               } finally {
                 try {
-                  if (!_iteratorNormalCompletion3 && _iterator3.return != null) {
-                    _iterator3.return();
+                  if (!_iteratorNormalCompletion4 && _iterator4.return != null) {
+                    _iterator4.return();
                   }
                 } finally {
-                  if (_didIteratorError3) {
-                    throw _iteratorError3;
+                  if (_didIteratorError4) {
+                    throw _iteratorError4;
                   }
                 }
               }
             }
           } catch (err) {
-            _didIteratorError2 = true;
-            _iteratorError2 = err;
+            _didIteratorError3 = true;
+            _iteratorError3 = err;
           } finally {
             try {
-              if (!_iteratorNormalCompletion2 && _iterator2.return != null) {
-                _iterator2.return();
+              if (!_iteratorNormalCompletion3 && _iterator3.return != null) {
+                _iterator3.return();
               }
             } finally {
-              if (_didIteratorError2) {
-                throw _iteratorError2;
+              if (_didIteratorError3) {
+                throw _iteratorError3;
               }
             }
           }
@@ -761,75 +800,75 @@ var CanvasControls;
           return b._id - a._id;
         }),
             ret = false;
-        var _iteratorNormalCompletion4 = true;
-        var _didIteratorError4 = false;
-        var _iteratorError4 = undefined;
+        var _iteratorNormalCompletion5 = true;
+        var _didIteratorError5 = false;
+        var _iteratorError5 = undefined;
 
         try {
-          for (var _iterator4 = event.changedTouches[Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
-            var touch = _step4.value;
+          for (var _iterator5 = event.changedTouches[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
+            var touch = _step5.value;
             coords = [(touch.clientX - cc.target.offsetLeft - cc.trans[0]) / cc.scl[0], (touch.clientY - cc.target.offsetTop - cc.trans[1]) / cc.scl[1]];
-            var _iteratorNormalCompletion6 = true;
-            var _didIteratorError6 = false;
-            var _iteratorError6 = undefined;
+            var _iteratorNormalCompletion7 = true;
+            var _didIteratorError7 = false;
+            var _iteratorError7 = undefined;
 
             try {
-              for (var _iterator6 = sorted[Symbol.iterator](), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
-                var _butt = _step6.value;
+              for (var _iterator7 = sorted[Symbol.iterator](), _step7; !(_iteratorNormalCompletion7 = (_step7 = _iterator7.next()).done); _iteratorNormalCompletion7 = true) {
+                var _butt = _step7.value;
                 _butt.enabled && _butt._isOn(coords);
               }
             } catch (err) {
-              _didIteratorError6 = true;
-              _iteratorError6 = err;
+              _didIteratorError7 = true;
+              _iteratorError7 = err;
             } finally {
               try {
-                if (!_iteratorNormalCompletion6 && _iterator6.return != null) {
-                  _iterator6.return();
+                if (!_iteratorNormalCompletion7 && _iterator7.return != null) {
+                  _iterator7.return();
                 }
               } finally {
-                if (_didIteratorError6) {
-                  throw _iteratorError6;
+                if (_didIteratorError7) {
+                  throw _iteratorError7;
                 }
               }
             }
           }
         } catch (err) {
-          _didIteratorError4 = true;
-          _iteratorError4 = err;
+          _didIteratorError5 = true;
+          _iteratorError5 = err;
         } finally {
           try {
-            if (!_iteratorNormalCompletion4 && _iterator4.return != null) {
-              _iterator4.return();
+            if (!_iteratorNormalCompletion5 && _iterator5.return != null) {
+              _iterator5.return();
             }
           } finally {
-            if (_didIteratorError4) {
-              throw _iteratorError4;
+            if (_didIteratorError5) {
+              throw _iteratorError5;
             }
           }
         }
 
         if (cc._touches.length === 1 && Date.now() - cc._clktime <= cc.clickSensitivity) {
-          var _iteratorNormalCompletion5 = true;
-          var _didIteratorError5 = false;
-          var _iteratorError5 = undefined;
+          var _iteratorNormalCompletion6 = true;
+          var _didIteratorError6 = false;
+          var _iteratorError6 = undefined;
 
           try {
-            for (var _iterator5 = sorted[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
-              var butt = _step5.value;
+            for (var _iterator6 = sorted[Symbol.iterator](), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
+              var butt = _step6.value;
               butt.enabled && butt._isOn(coords) && (ret = butt.click(coords));
               if (ret) break;
             }
           } catch (err) {
-            _didIteratorError5 = true;
-            _iteratorError5 = err;
+            _didIteratorError6 = true;
+            _iteratorError6 = err;
           } finally {
             try {
-              if (!_iteratorNormalCompletion5 && _iterator5.return != null) {
-                _iterator5.return();
+              if (!_iteratorNormalCompletion6 && _iterator6.return != null) {
+                _iterator6.return();
               }
             } finally {
-              if (_didIteratorError5) {
-                throw _iteratorError5;
+              if (_didIteratorError6) {
+                throw _iteratorError6;
               }
             }
           }
@@ -861,42 +900,6 @@ var CanvasControls;
           return c * (1 - d);
         })));
       } //wheel
-
-    }, {
-      key: "clickPC",
-      value: function clickPC(event, cc) {
-        var coords = [(event.clientX - cc.target.offsetLeft - cc.trans[0]) / cc.scl[0], (event.clientY - cc.target.offsetTop - cc.trans[1]) / cc.scl[1]],
-            sorted = Array.from(cc.wgets.entries()).map(function (s) {
-          return s[1];
-        }).sort(function (a, b) {
-          return b._id - a._id;
-        }),
-            ret = false;
-        var _iteratorNormalCompletion7 = true;
-        var _didIteratorError7 = false;
-        var _iteratorError7 = undefined;
-
-        try {
-          for (var _iterator7 = sorted[Symbol.iterator](), _step7; !(_iteratorNormalCompletion7 = (_step7 = _iterator7.next()).done); _iteratorNormalCompletion7 = true) {
-            var butt = _step7.value;
-            butt.enabled && butt._isOn(coords) && (ret = butt.click(coords));
-            if (ret) break;
-          }
-        } catch (err) {
-          _didIteratorError7 = true;
-          _iteratorError7 = err;
-        } finally {
-          try {
-            if (!_iteratorNormalCompletion7 && _iterator7.return != null) {
-              _iterator7.return();
-            }
-          } finally {
-            if (_didIteratorError7) {
-              throw _iteratorError7;
-            }
-          }
-        }
-      } //clickPC
 
     }, {
       key: "fixDelta",

@@ -78,6 +78,7 @@ export declare module CanvasControls {
          * @member {number[]} rot=0,0 - Rotation
          * @member {number[]} pin?=this.target.width/2,this.target.height/2 - Pseudo-center
          * @member {number[]} transBound=-Infinity,-Infinity,Infinity,Infinity - Max translation boundaries
+         * @prop {boolean} dynamicTransBounds=true - transBounds depend on scaling
          * @member {boolean} dragEnabled=false - Enable translation on drag
          * @member {boolean} pinchEnabled=false - Enable scaling on 2-finger pinch (1 finger only shall move)
          * @member {boolean} wheelEnabled=false - Enable scaling on mouse wheel
@@ -107,6 +108,7 @@ export declare module CanvasControls {
             transBounds?: number[];
             sclBounds?: number[];
             transSpeed?: number;
+            dynamicTransBounds?: boolean;
             sclSpeed?: number;
             touchSensitivity?: number;
             clickSensitivity?: number;
@@ -209,6 +211,7 @@ export declare module CanvasControls {
      * @prop {number[]} scl=1,1 - Scaling
      * @prop {number[]} pin?=this.target.width/2,this.target.height/2 - Pseudo-center
      * @prop {number[]} transBound=-Infinity,-Infinity,Infinity,Infinity - Max translation boundaries
+     * @prop {boolean} dynamicTransBounds=true - transBounds depend on scaling
      * @prop {boolean} dragEnabled=false - Enable translation on drag
      * @prop {boolean} pinchEnabled=false - Enable scaling on 2-finger pinch (both fingers shall move)
      * @prop {boolean} wheelEnabled=false - Enable scaling on mouse wheel
@@ -232,6 +235,7 @@ export declare module CanvasControls {
         scl: number[];
         pin: number[];
         transBounds: number[];
+        dynamicTransBounds: boolean;
         sclBounds: number[];
         dragEnabled: boolean;
         pinchEnabled: boolean;
@@ -253,7 +257,7 @@ export declare module CanvasControls {
         private _pressed;
         private _clktime;
         _adapts: Opts.ControllableCanvasAdapters;
-        private _coordinates;
+        _coordinates: number[];
         private _touches;
         private static _linepix;
         static CanvasButton: Class;
