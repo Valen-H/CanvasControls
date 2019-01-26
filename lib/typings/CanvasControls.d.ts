@@ -319,6 +319,12 @@ export declare module CanvasControls {
         private static dragMobileStart;
         private static dragMobileEnd;
         private static wheel;
+        /**
+         * Get screen-equivalent coordinates that bypass transformations.
+         * @method
+         * @returns {number[]}
+         */
+        getCoords(): number[];
         private static readonly isMobile;
         private static readonly lineToPix;
         private static fixDelta;

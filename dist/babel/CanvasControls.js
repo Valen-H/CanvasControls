@@ -6,6 +6,10 @@
  *
  * atan2(pny - pcy, pnx - pcx) - atan2(ppy - pcy, ppx - pcx)
  */
+
+/*
+ * centered zoom breaks with transBounds - normal/acceptable
+ */
 "use strict";
 
 function _toConsumableArray(arr) { return _arrayWithoutHoles(arr) || _iterableToArray(arr) || _nonIterableSpread(); }
@@ -207,6 +211,7 @@ var CanvasControls;
    * @prop {number[]} scl=1,1 - Scaling
    * @prop {number[]} pin?=this.target.width/2,this.target.height/2 - Pseudo-center
    * @prop {number[]} transBound=-Infinity,-Infinity,Infinity,Infinity - Max translation boundaries
+   * @prop {boolean} dynamicTransBounds=true - transBounds depend on scaling
    * @prop {boolean} dragEnabled=false - Enable translation on drag
    * @prop {boolean} pinchEnabled=false - Enable scaling on 2-finger pinch (both fingers shall move)
    * @prop {boolean} wheelEnabled=false - Enable scaling on mouse wheel
@@ -241,6 +246,7 @@ var CanvasControls;
       this.trans = [0, 0];
       this.scl = [1, 1];
       this.transBounds = [-Infinity, -Infinity, Infinity, Infinity];
+      this.dynamicTransBounds = true;
       this.sclBounds = [0, 0, Infinity, Infinity];
       this.dragEnabled = false;
       this.pinchEnabled = false;
@@ -304,6 +310,7 @@ var CanvasControls;
 
       this.sclBounds = Array.from(opts.sclBounds).map(Number); // x, y, X, Y
 
+      this.dynamicTransBounds = !!opts.dynamicTransBounds;
       this.dragEnabled = !!opts.dragEnabled;
       this.pinchEnabled = !!opts.pinchEnabled;
       this.wheelEnabled = !!opts.wheelEnabled;
@@ -397,7 +404,7 @@ var CanvasControls;
           return -b;
         });
         return this.trans = this.trans.map(function (trn, idx) {
-          return bound(Number(!abs ? trn + by[idx] : by[idx]), _this.transBounds[idx], _this.transBounds[idx + 2]);
+          return bound(Number(!abs ? trn + by[idx] : by[idx]), _this.dynamicTransBounds ? _this.transBounds[idx] * _this.scl[idx] : _this.transBounds[idx], _this.dynamicTransBounds ? _this.transBounds[idx + 2] * _this.scl[idx] : _this.transBounds[idx + 2]);
         });
       } //translate
 
@@ -507,6 +514,23 @@ var CanvasControls;
         if (!this._adapts.tilt && this.tiltEnabled) {//TODO
         }
       } //_pcAdapt
+
+    }, {
+      key: "getCoords",
+      //wheel
+
+      /**
+       * Get screen-equivalent coordinates that bypass transformations.
+       * @method
+       * @returns {number[]}
+       */
+      value: function getCoords() {
+        var _this5 = this;
+
+        return this._coordinates.map(function (c, idx) {
+          return (c - _this5.trans[idx]) / _this5.scl[idx];
+        });
+      } //getCoords
 
     }, {
       key: "ratio",
@@ -899,8 +923,7 @@ var CanvasControls;
         })) cc.translate.apply(cc, _toConsumableArray(coords.map(function (c) {
           return c * (1 - d);
         })));
-      } //wheel
-
+      }
     }, {
       key: "fixDelta",
       //lineToPix
@@ -965,6 +988,7 @@ var CanvasControls;
     panEnabled: false,
     tiltEnabled: false,
     eventsReversed: false,
+    dynamicTransBounds: true,
     useButton: 1,
     scaleMode: 1,
     transSpeed: 1,
@@ -1032,17 +1056,17 @@ var CanvasControls;
     }, {
       key: "bind",
       value: function bind() {
-        var _this5 = this;
+        var _this6 = this;
 
         if (!this._bound) {
           this.element.addEventListener("keypress", function (event) {
-            return _this5._handler.bind(_this5)("keypress", event);
+            return _this6._handler.bind(_this6)("keypress", event);
           }, false);
           this.element.addEventListener("keyup", function (event) {
-            return _this5._handler.bind(_this5)("keyup", event);
+            return _this6._handler.bind(_this6)("keyup", event);
           }, false);
           this.element.addEventListener("keydown", function (event) {
-            return _this5._handler.bind(_this5)("keydown", event);
+            return _this6._handler.bind(_this6)("keydown", event);
           }, false);
           return this._bound = true;
         }
@@ -1284,10 +1308,10 @@ var CanvasControls;
     }, {
       key: "_isOn",
       value: function _isOn(relativeCoords) {
-        var x = (this.position & Opts.Position.FIXED) === Opts.Position.FIXED ? this.x - this.parent.trans[0] : this.x,
-            y = (this.position & Opts.Position.FIXED) === Opts.Position.FIXED ? this.y - this.parent.trans[1] : this.y,
-            dx = (this.position & Opts.Position.UNSCALABLE) === Opts.Position.UNSCALABLE ? this.dx * this.parent.scl[0] : this.dx,
-            dy = (this.position & Opts.Position.UNSCALABLE) === Opts.Position.UNSCALABLE ? this.dy * this.parent.scl[1] : this.dy,
+        var x = (this.position & Opts.Position.FIXED) === Opts.Position.FIXED ? (this.x - this.parent.trans[0]) / this.parent.scl[0] : this.x,
+            y = (this.position & Opts.Position.FIXED) === Opts.Position.FIXED ? (this.y - this.parent.trans[1]) / this.parent.scl[1] : this.y,
+            dx = (this.position & Opts.Position.UNSCALABLE) === Opts.Position.UNSCALABLE ? this.dx / this.parent.scl[0] : this.dx,
+            dy = (this.position & Opts.Position.UNSCALABLE) === Opts.Position.UNSCALABLE ? this.dy / this.parent.scl[1] : this.dy,
             out = isWithin([x, y, dx, dy], [relativeCoords[0], relativeCoords[1]], CanvasButton.sensitivity);
 
         if (!out && this.pstate) {
@@ -1355,17 +1379,17 @@ var CanvasControls;
     _createClass(Vector, [{
       key: "add",
       value: function add(targ) {
-        var _this6 = this;
+        var _this7 = this;
 
         var sub = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 1;
 
         if (targ instanceof Vector) {
           this.props.forEach(function (prop, idx) {
-            _this6.props[idx] += sub * targ[idx];
+            _this7.props[idx] += sub * targ[idx];
           });
         } else {
           this.props.forEach(function (prop, idx) {
-            _this6.props[idx] += sub * targ;
+            _this7.props[idx] += sub * targ;
           });
         }
 
@@ -1383,17 +1407,17 @@ var CanvasControls;
     }, {
       key: "mult",
       value: function mult(targ) {
-        var _this7 = this;
+        var _this8 = this;
 
         var div = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 1;
 
         if (targ instanceof Vector) {
           this.props.forEach(function (prop, idx) {
-            _this7.props[idx] *= Math.pow(targ[idx], div);
+            _this8.props[idx] *= Math.pow(targ[idx], div);
           });
         } else {
           this.props.forEach(function (prop, idx) {
-            _this7.props[idx] *= Math.pow(targ, div);
+            _this8.props[idx] *= Math.pow(targ, div);
           });
         }
 
@@ -1450,13 +1474,13 @@ var CanvasControls;
     _createClass(ResourceLoader, [{
       key: "bind",
       value: function bind(onload) {
-        var _this8 = this;
+        var _this9 = this;
 
         if (onload) this.load = onload;
         this.resources.forEach(function (res) {
           res.addEventListener("load", function () {
-            if (++_this8._loadcntr === _this8.resources.length) {
-              _this8.load(res, _this8._loadcntr);
+            if (++_this9._loadcntr === _this9.resources.length) {
+              _this9.load(res, _this9._loadcntr);
             }
           });
         });
