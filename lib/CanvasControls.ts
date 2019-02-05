@@ -210,7 +210,7 @@ export module CanvasControls {
 		} //CanvasButtonOptions
 
 		export enum UseButton {
-			USELEFT = 1, USERIGHT, USEBOTH
+			USELEFT = 1, USERIGHT, USEBOTH, USEWHEEL, USEALL = 7
 		} //UseButton
 		export enum ScaleMode {
 			NORMAL = 1, FREESCALE
@@ -528,7 +528,7 @@ export module CanvasControls {
 					ret: boolean = false;
 
 				for (let butt of sorted) {
-					butt.enabled && butt._isOn(coords) && (ret = butt.click(coords));
+					butt.enabled && butt._isOn(coords) && (ret = butt.click(coords, event));
 					if (ret) break;
 				}
 			}
@@ -545,12 +545,17 @@ export module CanvasControls {
 
 			cc._coordinates = coords;
 
-			if (((cc.useButton & Opts.UseButton.USERIGHT) !== Opts.UseButton.USERIGHT && ((("buttons" in event) && (event.buttons & 2) === 2) || (("which" in event) && event.which === 3) || (("button" in event) && event.button === 2))) || ((cc.useButton & Opts.UseButton.USERIGHT) === Opts.UseButton.USERIGHT && (cc.useButton & Opts.UseButton.USEBOTH) !== Opts.UseButton.USEBOTH && (("buttons" in event) && (event.buttons & 2) !== 2) && (("which" in event) && event.which !== 3) && (("button" in event) && event.button !== 2))) {
+			/*if (((cc.useButton & Opts.UseButton.USERIGHT) !== Opts.UseButton.USERIGHT && ((("buttons" in event) && (event.buttons & 2) === 2) || (("which" in event) && event.which === 3) || (("button" in event) && event.button === 2))) || ((cc.useButton & Opts.UseButton.USERIGHT) === Opts.UseButton.USERIGHT && (cc.useButton & Opts.UseButton.USEBOTH) !== Opts.UseButton.USEBOTH && (("buttons" in event) && (event.buttons & 2) !== 2) && (("which" in event) && event.which !== 3) && (("button" in event) && event.button !== 2))) {
+				return;
+			}*/
+
+			if (cc._pressed) cc._clktime = 0;
+
+			if ((event.buttons & cc.useButton) !== event.buttons) {
 				return;
 			}
 
 			if (cc._pressed) {
-				cc._clktime = 0;
 				cc.translate(event.movementX * cc.transSpeed, event.movementY * cc.transSpeed);
 			}
 
@@ -674,7 +679,7 @@ export module CanvasControls {
 
 			if (cc._touches.length === 1 && Date.now() - cc._clktime <= cc.clickSensitivity) {
 				for (let butt of sorted) {
-					butt.enabled && butt._isOn(coords) && (ret = butt.click(coords));
+					butt.enabled && butt._isOn(coords) && (ret = butt.click(coords, event));
 					if (ret) break;
 				}
 

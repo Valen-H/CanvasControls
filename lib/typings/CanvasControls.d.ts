@@ -169,7 +169,9 @@ export declare module CanvasControls {
         enum UseButton {
             USELEFT = 1,
             USERIGHT = 2,
-            USEBOTH = 3
+            USEBOTH = 3,
+            USEWHEEL = 4,
+            USEALL = 7
         }
         enum ScaleMode {
             NORMAL = 1,
