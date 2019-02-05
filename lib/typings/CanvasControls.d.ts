@@ -15,15 +15,54 @@ export declare module CanvasControls {
         new (...args: any[]): any;
     };
     /**
+     * If `dest` lacks a property that `targ` has then that property is copied into `dest`
+     * @function
+     * @inner
+     * @param {object} dest - destination object
+     * @param {object} targ - base object
+     * @param {Function} condition - inheritance condition
+     * @returns {object} destination object
+     */
+    function inherit(dest: {}, targ: {}, condition?: Function): {};
+    /**
      * Restrict number's range
      * @function
      * @inner
      * @param {number} n - target number
      * @param {number} m - minimum number
      * @param {number} M - maximum number
+     * @param {number} p=0 - precision
      * @returns {number} bound number
      */
-    function bound(n: number, m: number, M: number): number;
+    function bound(n: number, m: number, M: number, p?: number): number;
+    /**
+     * Downspeed incrementation
+     * @param {number} n - number
+     * @param {number} m - minimum
+     * @param {number} M - Maximum
+     * @param {number} op - operation
+     * @returns {number} n
+     */
+    function block(n: number, m: number, M: number, op: number): number;
+    /**
+     * Calculate distance between 2 points
+     * @param {number[]} Xs - X coordinates
+     * @param {number[]} Ys - Y coordinates
+     * @returns {number} distance
+     * @function
+     * @inner
+     */
+    function dist(Xs: number[], Ys: number[]): number;
+    /**
+     * Checks if pointer is inside an area
+     * @param {number[]} box - x,y,dx,dy
+     * @param {number[]} point - x,y
+     * @param {number} sensitivity - extra boundary
+     * @returns boolean
+     * @inner
+     * @function
+     */
+    function isWithin(box: number[], point: number[], sensitivity?: number): boolean;
     /**
      * A holder for all Options
      * @namespace
@@ -39,9 +78,11 @@ export declare module CanvasControls {
          * @member {number[]} rot=0,0 - Rotation
          * @member {number[]} pin?=this.target.width/2,this.target.height/2 - Pseudo-center
          * @member {number[]} transBound=-Infinity,-Infinity,Infinity,Infinity - Max translation boundaries
+         * @prop {boolean} dynamicTransBounds=true - transBounds depend on scaling
          * @member {boolean} dragEnabled=false - Enable translation on drag
          * @member {boolean} pinchEnabled=false - Enable scaling on 2-finger pinch (1 finger only shall move)
          * @member {boolean} wheelEnabled=false - Enable scaling on mouse wheel
+         * @prop {boolean} keysEnabled=false - Enable keyabord events listener
          * @member {boolean} panEnabled=false - Enable translation based on mouse/finger distance from pin (pseudo-center)
          * @member {boolean} tiltEnabled=false - Enable translation on device movement
          * @member {boolean} eventsReversed=false - Toggle reverse-operations
@@ -53,24 +94,26 @@ export declare module CanvasControls {
          */
         interface ControllableCanvasOptions {
             target: HTMLCanvasElement;
-            trans: number[];
-            scl: number[];
-            dragEnabled: boolean;
-            pinchEnabled: boolean;
-            wheelEnabled: boolean;
-            panEnabled: boolean;
-            tiltEnabled: boolean;
-            eventsReversed: boolean;
-            useButton: number;
-            scaleMode: number;
-            transBounds: number[];
-            sclBounds: number[];
-            transSpeed: number;
-            sclSpeed: number;
-            touchSensitivity: number;
-            clickSensitivity: number;
-            _adapts: ControllableCanvasAdapters;
-            wgets: Set<CanvasButton>;
+            trans?: number[];
+            scl?: number[];
+            dragEnabled?: boolean;
+            pinchEnabled?: boolean;
+            wheelEnabled?: boolean;
+            keysEnabled?: boolean;
+            panEnabled?: boolean;
+            tiltEnabled?: boolean;
+            eventsReversed?: boolean;
+            useButton?: number;
+            scaleMode?: number;
+            transBounds?: number[];
+            sclBounds?: number[];
+            transSpeed?: number;
+            dynamicTransBounds?: boolean;
+            sclSpeed?: number;
+            touchSensitivity?: number;
+            clickSensitivity?: number;
+            _adapts?: ControllableCanvasAdapters;
+            wgets?: Set<CanvasButton>;
             [prop: string]: any;
         }
         /**
@@ -117,16 +160,18 @@ export declare module CanvasControls {
             y: number;
             dx: number;
             dy: number;
-            index: number;
+            index?: number;
             parent: ControllableCanvas;
-            enabled: boolean;
-            position: number;
+            enabled?: boolean;
+            position?: number;
             [prop: string]: any;
         }
         enum UseButton {
             USELEFT = 1,
             USERIGHT = 2,
-            USEBOTH = 3
+            USEBOTH = 3,
+            USEWHEEL = 4,
+            USEALL = 7
         }
         enum ScaleMode {
             NORMAL = 1,
@@ -150,6 +195,15 @@ export declare module CanvasControls {
         const EISALR: ReferenceError;
     }
     /**
+     * Type of KeyBind
+     */
+    type Key = {
+        key: string;
+        callback: (event: KeyboardEvent, type: string) => boolean;
+        id: number;
+        type: string;
+    };
+    /**
      * A wrapper for the targeted canvas element
      * @class
      * @implements {Opts.ControllableCanvasOptions}
@@ -159,9 +213,11 @@ export declare module CanvasControls {
      * @prop {number[]} scl=1,1 - Scaling
      * @prop {number[]} pin?=this.target.width/2,this.target.height/2 - Pseudo-center
      * @prop {number[]} transBound=-Infinity,-Infinity,Infinity,Infinity - Max translation boundaries
+     * @prop {boolean} dynamicTransBounds=true - transBounds depend on scaling
      * @prop {boolean} dragEnabled=false - Enable translation on drag
      * @prop {boolean} pinchEnabled=false - Enable scaling on 2-finger pinch (both fingers shall move)
      * @prop {boolean} wheelEnabled=false - Enable scaling on mouse wheel
+     * @prop {boolean} keysEnabled=false - Enable keyabord events listener
      * @prop {boolean} panEnabled=false - Enable translation based on mouse/finger distance from pin (pseudo-center)
      * @prop {boolean} tiltEnabled=false - Enable translation on device movement
      * @prop {boolean} eventsReversed=false - Toggle reverse-operations
@@ -181,10 +237,12 @@ export declare module CanvasControls {
         scl: number[];
         pin: number[];
         transBounds: number[];
+        dynamicTransBounds: boolean;
         sclBounds: number[];
         dragEnabled: boolean;
         pinchEnabled: boolean;
         wheelEnabled: boolean;
+        keysEnabled: boolean;
         panEnabled: boolean;
         tiltEnabled: boolean;
         eventsReversed: boolean;
@@ -195,11 +253,13 @@ export declare module CanvasControls {
         touchSensitivity: number;
         clickSensitivity: number;
         wgets: Set<CanvasButton>;
+        keybinds: KeyBind;
+        private _zoomChanged;
         private _mobile;
         private _pressed;
         private _clktime;
         _adapts: Opts.ControllableCanvasAdapters;
-        private _coordinates;
+        _coordinates: number[];
         private _touches;
         private static _linepix;
         static CanvasButton: Class;
@@ -255,15 +315,82 @@ export declare module CanvasControls {
         scale(x?: number, y?: number, abs?: boolean): number[];
         private _mobileAdapt;
         private _pcAdapt;
+        private static clickPC;
         private static dragPC;
         private static dragMobileMove;
         private static dragMobileStart;
         private static dragMobileEnd;
         private static wheel;
-        private static clickPC;
+        /**
+         * Get screen-equivalent coordinates that bypass transformations.
+         * @method
+         * @returns {number[]}
+         */
+        getCoords(): number[];
         private static readonly isMobile;
         private static readonly lineToPix;
         private static fixDelta;
+    }
+    /**
+     * A class to control keyboard events
+     */
+    class KeyBind {
+        press: Key[];
+        down: Key[];
+        up: Key[];
+        element: HTMLElement;
+        _bound: boolean;
+        arrowMoveSpeed: number;
+        arrowMoveSpeedup: number;
+        arrowMoveSpeedMax: number;
+        arrowMoveSpeedupEnabled: boolean;
+        arrowBindings: {
+            [key: string]: number[];
+        };
+        static _idcntr: number;
+        static arrowMoveSpeed: number;
+        static arrowMoveSpeedup: number;
+        static arrowMoveSpeedMax: number;
+        static arrowMoveSpeedupEnabled: boolean;
+        static arrowBindings: {
+            [key: string]: number[];
+        };
+        constructor(element: HTMLElement, bind?: boolean);
+        static arrowMove(event: KeyboardEvent, type: string): boolean;
+        bindArrows(): void;
+        /**
+         * Bind key event listeners
+         * @method
+         * @returns {boolean}
+         */
+        bind(): boolean;
+        _handler(type: string, event: KeyboardEvent): boolean;
+        /**
+         * @method
+         * @param {string} key
+         * @param {Function} callback - cb(event)
+         * @returns {Key}
+         */
+        registerKeypress(key: string, callback: (event: KeyboardEvent, type: string) => boolean): Key;
+        /**
+         * @method
+         * @param {string} key
+         * @param {Function} callback - cb(event)
+         * @returns {Key}
+         */
+        registerKeydown(key: string, callback: (event: KeyboardEvent, type: string) => boolean): Key;
+        /**
+         * @method
+         * @param {string} key
+         * @param {Function} callback - cb(event)
+         * @returns {Key}
+         */
+        registerKeyup(key: string, callback: (event: KeyboardEvent, type: string) => boolean): Key;
+        /**
+         * @method
+         * @param {Key} key
+         */
+        unregister(key: Key | number | string, repl: Key): Key | Key[] | boolean;
     }
     /**
      * A widget-making class for canvas
@@ -314,7 +441,7 @@ export declare module CanvasControls {
          * @param {number[]} relativeCoords
          * @method
          */
-        isOn(relativeCoords: number[]): boolean;
+        _isOn(relativeCoords: number[]): boolean;
     }
     /**
      * A class offering mathematical Vector utilities
