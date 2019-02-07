@@ -230,6 +230,7 @@ export module CanvasControls {
 		export const ENOTNUMARR2: TypeError = new TypeError("Not an Array of 2-at-least Numbers.");
 		export const ENOTNUM: TypeError = new TypeError("Not a valid Number.");
 		export const EISALR: ReferenceError = new ReferenceError("Object is already registered.");
+		export const ENOCCANV: ReferenceError = new ReferenceError("Not a ControlableCanvas element.");
 	} //Errors
 
 	/**
@@ -483,10 +484,12 @@ export module CanvasControls {
 				let nscl: number[] = this.scl.map((scl: number, idx: number): number => scl * by[idx]);
 				nscl = [nscl[0] - this.scl[0], nscl[1] - this.scl[1]];
 				this._zoomChanged = [this.scl[0] !== block(this.scl[0], this.sclBounds[0], this.sclBounds[2], nscl[0]), this.scl[1] !== block(this.scl[1], this.sclBounds[1], this.sclBounds[3], nscl[1])];
-				return this.scl = [block(this.scl[0], this.sclBounds[0], this.sclBounds[2], nscl[0]), block(this.scl[1], this.sclBounds[1], this.sclBounds[3], nscl[1])];
+				this.scl = [block(this.scl[0], this.sclBounds[0], this.sclBounds[2], nscl[0]), block(this.scl[1], this.sclBounds[1], this.sclBounds[3], nscl[1])];
+				return this.scl;
 			} else {
 				this._zoomChanged = [this.scl[0] !== bound(this.scl[0], this.sclBounds[0], this.sclBounds[2]), this.scl[1] !== bound(this.scl[1], this.sclBounds[1], this.sclBounds[3])];
-				return this.scl = this.scl.map((scl: number, idx: number): number => bound(scl * by[idx], this.sclBounds[idx], this.sclBounds[idx + 2]));
+				this.scl = this.scl.map((scl: number, idx: number): number => bound(scl * by[idx], this.sclBounds[idx], this.sclBounds[idx + 2]));
+				return this.scl;
 			}
 		} //scale
 
@@ -614,9 +617,9 @@ export module CanvasControls {
 						d: number[] = [dis[0] / inidist[0], dis[1] / inidist[1]].map((v: number) => v * cc.sclSpeed),
 						ntouches: number[] = itouches.map((i: number, idx: number) => i * (1 - d[idx]));
 
+					cc.scale(d[0], d[1]);
 					if (cc._zoomChanged[0]) cc.translate(ntouches[0]);
 					if (cc._zoomChanged[1]) cc.translate(ntouches[1]);
-					cc.scale(d[0], d[1]);
 				} else {
 					//@ts-ignore
 					let inidist: number = dist([cc._touches[event.targetTouches[0].identifier][0], cc._touches[event.targetTouches[1].identifier][0]], [cc._touches[event.targetTouches[0].identifier][1], cc._touches[event.targetTouches[1].identifier][1]]),
@@ -704,6 +707,23 @@ export module CanvasControls {
 			cc.scale(d);
 			if (cc._zoomChanged.every((zm: boolean): boolean => zm)) cc.translate(...coords.map((c: number) => c * (1 - d)));
 		} //wheel
+
+
+		_forceDragPC(): void {
+			let fake: MouseEvent = new MouseEvent("mousemove", {
+				view: window,
+				bubbles: true,
+				cancelable: false,
+				clientX: this._coordinates[0] + this.target.offsetLeft,
+				clientY: this._coordinates[1] + this.target.offsetTop,
+				buttons: this.useButton,
+				//@ts-ignore
+				movementX: 0,
+				//@ts-ignore
+				movementY: 0
+			});
+			this.target.dispatchEvent(fake);
+		} //_forceDragPC
 
 		/**
 		 * Get screen-equivalent coordinates that bypass transformations.
@@ -796,6 +816,7 @@ export module CanvasControls {
 		static arrowMove(event: KeyboardEvent, type: string): boolean {
 			if (type === "keydown") {
 				event.target["_cc_"].translate(this.arrowMoveSpeed * this.arrowBindings[event.key][0], this.arrowMoveSpeed * this.arrowBindings[event.key][1]);
+				event.target["_cc_"]._forceDragPC();
 				if (this.arrowMoveSpeedupEnabled) this.arrowMoveSpeed = bound(this.arrowMoveSpeed + this.arrowMoveSpeedup, 0, this.arrowMoveSpeedMax);
 			} else {
 				this.arrowMoveSpeed = KeyBind.arrowMoveSpeed;
@@ -804,6 +825,7 @@ export module CanvasControls {
 		} //arrowMove
 
 		bindArrows(): void {
+			if (!this.element["_cc_"]) throw Errors.ENOCCANV;
 			for (let i in this.arrowBindings) {
 				this.registerKeydown(i, KeyBind.arrowMove.bind(this));
 				this.registerKeyup(i, KeyBind.arrowMove.bind(this));

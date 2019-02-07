@@ -193,6 +193,7 @@ export declare module CanvasControls {
         const ENOTNUMARR2: TypeError;
         const ENOTNUM: TypeError;
         const EISALR: ReferenceError;
+        const ENOCCANV: ReferenceError;
     }
     /**
      * Type of KeyBind
@@ -321,6 +322,7 @@ export declare module CanvasControls {
         private static dragMobileStart;
         private static dragMobileEnd;
         private static wheel;
+        _forceDragPC(): void;
         /**
          * Get screen-equivalent coordinates that bypass transformations.
          * @method

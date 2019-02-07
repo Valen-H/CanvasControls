@@ -164,6 +164,8 @@ var CanvasControls;
       UseButton[UseButton["USELEFT"] = 1] = "USELEFT";
       UseButton[UseButton["USERIGHT"] = 2] = "USERIGHT";
       UseButton[UseButton["USEBOTH"] = 3] = "USEBOTH";
+      UseButton[UseButton["USEWHEEL"] = 4] = "USEWHEEL";
+      UseButton[UseButton["USEALL"] = 7] = "USEALL";
     })(UseButton = Opts.UseButton || (Opts.UseButton = {})); //UseButton
 
 
@@ -567,7 +569,7 @@ var CanvasControls;
           try {
             for (var _iterator = sorted[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
               var butt = _step.value;
-              butt.enabled && butt._isOn(coords) && (ret = butt.click(coords));
+              butt.enabled && butt._isOn(coords) && (ret = butt.click(coords, event));
               if (ret) break;
             }
           } catch (err) {
@@ -598,13 +600,17 @@ var CanvasControls;
             rel = [],
             ret = false;
         cc._coordinates = coords;
+        /*if (((cc.useButton & Opts.UseButton.USERIGHT) !== Opts.UseButton.USERIGHT && ((("buttons" in event) && (event.buttons & 2) === 2) || (("which" in event) && event.which === 3) || (("button" in event) && event.button === 2))) || ((cc.useButton & Opts.UseButton.USERIGHT) === Opts.UseButton.USERIGHT && (cc.useButton & Opts.UseButton.USEBOTH) !== Opts.UseButton.USEBOTH && (("buttons" in event) && (event.buttons & 2) !== 2) && (("which" in event) && event.which !== 3) && (("button" in event) && event.button !== 2))) {
+            return;
+        }*/
 
-        if ((cc.useButton & Opts.UseButton.USERIGHT) !== Opts.UseButton.USERIGHT && ("buttons" in event && (event.buttons & 2) === 2 || "which" in event && event.which === 3 || "button" in event && event.button === 2) || (cc.useButton & Opts.UseButton.USERIGHT) === Opts.UseButton.USERIGHT && (cc.useButton & Opts.UseButton.USEBOTH) !== Opts.UseButton.USEBOTH && "buttons" in event && (event.buttons & 2) !== 2 && "which" in event && event.which !== 3 && "button" in event && event.button !== 2) {
+        if (cc._pressed) cc._clktime = 0;
+
+        if ((event.buttons & cc.useButton) !== event.buttons) {
           return;
         }
 
         if (cc._pressed) {
-          cc._clktime = 0;
           cc.translate(event.movementX * cc.transSpeed, event.movementY * cc.transSpeed);
         }
 
@@ -879,7 +885,7 @@ var CanvasControls;
           try {
             for (var _iterator6 = sorted[Symbol.iterator](), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
               var butt = _step6.value;
-              butt.enabled && butt._isOn(coords) && (ret = butt.click(coords));
+              butt.enabled && butt._isOn(coords) && (ret = butt.click(coords, event));
               if (ret) break;
             }
           } catch (err) {
