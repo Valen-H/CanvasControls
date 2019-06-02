@@ -33,11 +33,50 @@
     "source-map-loader": "^0.2.4",
     "typescript": "^3.2.2",
     "webpack": "^4.28.3",
-    "webpack-cli": "^3.1.2"
+    "jsdoc": "^3.5.5",
+    "webpack-cli": "^3.1.2",
+    "showdown": "^1.9.0"
   },
   "browser": true,
-  "optionalDependencies": {
-    "jsdoc": "^3.5.5",
-    "showdown": "^1.9.0"
-  }
+  "optionalDependencies": {},
+  "homepage": "https://github.com/Valen-H/CanvasControls#README.md",
+  "bugs": {
+    "url": "https://github.com/Valen-H/CanvasControls/issues",
+    "email": "alternativexxxy@gmail.com"
+  },
+  "contributors": [],
+  "files": [
+    "*"
+  ],
+  "bin": {},
+  "man": [],
+  "directories": {
+    "lib": "./lib",
+    "bin": "./bin",
+    "man": "./doc",
+    "doc": "./doc",
+    "example": "./test",
+    "test": "./test"
+  },
+  "typings": "lib/typings/",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/Valen-H/CanvasControls.git",
+    "directory": "./"
+  },
+  "config": {
+    "port": 8080
+  },
+  "peerDependencies": {},
+  "engines": {
+    "node": ">=12.0.0",
+    "npm": ">=3.0.0"
+  },
+  "engineStrict": false,
+  "os": [],
+  "cpu": [],
+  "preferGlobal": false,
+  "private": false,
+  "publishConfig": {},
+  "bundleDependencies": []
 }

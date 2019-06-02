@@ -1,6 +1,8 @@
 ﻿var cc,
 	bc = "black",
-	sc = "black";
+	sc = "black",
+	bigbox,
+	smallbox;
 
 window.onload = function load() {
 	if (CanvasControls.CanvasControls.ControllableCanvas.isMobile) {
@@ -15,7 +17,7 @@ window.onload = function load() {
 		scaleMode: 2,
 		useRight: 3
 	});
-	let bigbox = cc.addWidget({
+	bigbox = cc.addWidget({
 		x: 200,
 		y: 110,
 		dx: 50,
@@ -25,7 +27,8 @@ window.onload = function load() {
 			x: 50,
 			y: 50,
 			dx: 30,
-			dy: 30
+			dy: 30,
+			isDraggable: true
 		});
 	bigbox.focus = () => bc = "purple";
 	bigbox.blur = () => bc = "black";
@@ -33,6 +36,13 @@ window.onload = function load() {
 	smallbox.focus = () => sc = "purple";
 	smallbox.blur = () => sc = "black";
 	smallbox.click = () => sc = "red";
+	smallbox.drag = by => {
+		smallbox.x += by[0];
+		smallbox.y += by[1];
+		smallbox._dragIgnited = true;
+
+		return true;
+	};
 	cc.handle();
 	resize();
 	frame();
@@ -55,9 +65,9 @@ function frame() {
 	cc.context.clearRect(0, 0, cc.target.width, cc.target.height);
 	cc.retransform();
 	cc.context.fillStyle = sc;
-	cc.context.fillRect(50, 50, 30, 30);
+	cc.context.fillRect(smallbox.x, smallbox.y, smallbox.dx, smallbox.dy);
 	cc.context.fillStyle = bc;
-	cc.context.fillRect(200, 110, 50, 60);
+	cc.context.fillRect(bigbox.x, bigbox.y, bigbox.dx, bigbox.dy);
 	cc.context.fillStyle = "blue";
 	cc.context.fillRect(0, 0, 5, 5);
 	cc.context.fillStyle = "rgba(250,5,5,.5)";

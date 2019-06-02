@@ -7,6 +7,10 @@
  * atan2(pny - pcy, pnx - pcx) - atan2(ppy - pcy, ppx - pcx)
  */
 
+/**
+ * @todo Widget Dragging?
+ */
+
 /*
  * centered zoom breaks with transBounds - normal/acceptable
  */
@@ -201,6 +205,7 @@ var CanvasControls;
     Errors.ENOTNUMARR2 = new TypeError("Not an Array of 2-at-least Numbers.");
     Errors.ENOTNUM = new TypeError("Not a valid Number.");
     Errors.EISALR = new ReferenceError("Object is already registered.");
+    Errors.ENOCCANV = new ReferenceError("Not a ControlableCanvas element.");
   })(Errors = CanvasControls.Errors || (CanvasControls.Errors = {})); //Errors
 
   /**
@@ -268,6 +273,7 @@ var CanvasControls;
       this._zoomChanged = [false, false];
       this._mobile = false;
       this._pressed = false;
+      this._isDragging = false;
       this._clktime = 0;
       this._coordinates = [];
       this._touches = [];
@@ -438,12 +444,14 @@ var CanvasControls;
           });
           nscl = [nscl[0] - this.scl[0], nscl[1] - this.scl[1]];
           this._zoomChanged = [this.scl[0] !== block(this.scl[0], this.sclBounds[0], this.sclBounds[2], nscl[0]), this.scl[1] !== block(this.scl[1], this.sclBounds[1], this.sclBounds[3], nscl[1])];
-          return this.scl = [block(this.scl[0], this.sclBounds[0], this.sclBounds[2], nscl[0]), block(this.scl[1], this.sclBounds[1], this.sclBounds[3], nscl[1])];
+          this.scl = [block(this.scl[0], this.sclBounds[0], this.sclBounds[2], nscl[0]), block(this.scl[1], this.sclBounds[1], this.sclBounds[3], nscl[1])];
+          return this.scl;
         } else {
           this._zoomChanged = [this.scl[0] !== bound(this.scl[0], this.sclBounds[0], this.sclBounds[2]), this.scl[1] !== bound(this.scl[1], this.sclBounds[1], this.sclBounds[3])];
-          return this.scl = this.scl.map(function (scl, idx) {
+          this.scl = this.scl.map(function (scl, idx) {
             return bound(scl * by[idx], _this2.sclBounds[idx], _this2.sclBounds[idx + 2]);
           });
+          return this.scl;
         }
       } //scale
 
@@ -489,8 +497,7 @@ var CanvasControls;
             return ControllableCanvas.dragPC(e, _this4);
           });
           this.target.addEventListener("mousedown", function (e) {
-            _this4._clktime = Date.now();
-            _this4._pressed = true;
+            return ControllableCanvas.pressPC(e, _this4);
           });
           this.target.addEventListener("mouseup", this._adapts.click = function (e) {
             return ControllableCanvas.clickPC(e, _this4);
@@ -518,14 +525,32 @@ var CanvasControls;
       } //_pcAdapt
 
     }, {
-      key: "getCoords",
+      key: "_forceDragPC",
       //wheel
+      value: function _forceDragPC() {
+        var fake = new MouseEvent("mousemove", {
+          view: window,
+          bubbles: true,
+          cancelable: false,
+          clientX: this._coordinates[0] + this.target.offsetLeft,
+          clientY: this._coordinates[1] + this.target.offsetTop,
+          buttons: this.useButton,
+          //@ts-ignore
+          movementX: 0,
+          //@ts-ignore
+          movementY: 0
+        });
+        this.target.dispatchEvent(fake);
+      } //_forceDragPC
 
       /**
        * Get screen-equivalent coordinates that bypass transformations.
        * @method
        * @returns {number[]}
        */
+
+    }, {
+      key: "getCoords",
       value: function getCoords() {
         var _this5 = this;
 
@@ -554,6 +579,8 @@ var CanvasControls;
     }], [{
       key: "clickPC",
       value: function clickPC(event, cc) {
+        event.preventDefault();
+
         if (Date.now() - cc._clktime <= cc.clickSensitivity) {
           var coords = [(event.clientX - cc.target.offsetLeft - cc.trans[0]) / cc.scl[0], (event.clientY - cc.target.offsetTop - cc.trans[1]) / cc.scl[1]],
               sorted = Array.from(cc.wgets.entries()).map(function (s) {
@@ -588,43 +615,21 @@ var CanvasControls;
           }
         }
 
-        cc._clktime = 0;
-        cc._pressed = false;
-      } //clickPC
-
-    }, {
-      key: "dragPC",
-      value: function dragPC(event, cc) {
-        event.preventDefault();
-        var coords = [event.clientX - cc.target.offsetLeft, event.clientY - cc.target.offsetTop],
-            rel = [],
-            ret = false;
-        cc._coordinates = coords;
-        /*if (((cc.useButton & Opts.UseButton.USERIGHT) !== Opts.UseButton.USERIGHT && ((("buttons" in event) && (event.buttons & 2) === 2) || (("which" in event) && event.which === 3) || (("button" in event) && event.button === 2))) || ((cc.useButton & Opts.UseButton.USERIGHT) === Opts.UseButton.USERIGHT && (cc.useButton & Opts.UseButton.USEBOTH) !== Opts.UseButton.USEBOTH && (("buttons" in event) && (event.buttons & 2) !== 2) && (("which" in event) && event.which !== 3) && (("button" in event) && event.button !== 2))) {
-            return;
-        }*/
-
-        if (cc._pressed) cc._clktime = 0;
-
-        if ((event.buttons & cc.useButton) !== event.buttons) {
-          return;
-        }
-
-        if (cc._pressed) {
-          cc.translate(event.movementX * cc.transSpeed, event.movementY * cc.transSpeed);
-        }
-
+        var drags = Array.from(cc.wgets.values()).filter(function (butt) {
+          return butt._dragIgnited;
+        });
         var _iteratorNormalCompletion2 = true;
         var _didIteratorError2 = false;
         var _iteratorError2 = undefined;
 
         try {
-          for (var _iterator2 = cc.wgets[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
-            var butt = _step2.value;
-            butt.enabled && butt._isOn(rel = coords.map(function (c, idx) {
-              return (c - cc.trans[idx]) / cc.scl[idx];
-            })) && !butt.pstate && (butt.pstate = true, ret = butt.focus(rel));
-            if (ret) break;
+          for (var _iterator2 = drags[Symbol.iterator](), _step2; !(_iteratorNormalCompletion2 = (_step2 = _iterator2.next()).done); _iteratorNormalCompletion2 = true) {
+            var _butt = _step2.value;
+
+            _butt.drag([0, 0]);
+
+            _butt._dragIgnited = false;
+            cc._isDragging = false;
           }
         } catch (err) {
           _didIteratorError2 = true;
@@ -637,6 +642,134 @@ var CanvasControls;
           } finally {
             if (_didIteratorError2) {
               throw _iteratorError2;
+            }
+          }
+        }
+
+        cc._clktime = 0;
+        cc._pressed = false;
+      } //clickPC
+
+    }, {
+      key: "pressPC",
+      value: function pressPC(event, cc) {
+        event.preventDefault();
+        cc._clktime = Date.now();
+        cc._pressed = true;
+        var coords = [(event.clientX - cc.target.offsetLeft - cc.trans[0]) / cc.scl[0], (event.clientY - cc.target.offsetTop - cc.trans[1]) / cc.scl[1]],
+            sorted = Array.from(cc.wgets.entries()).map(function (s) {
+          return s[1];
+        }).sort(function (a, b) {
+          return b._id - a._id;
+        }),
+            ret = false;
+        var _iteratorNormalCompletion3 = true;
+        var _didIteratorError3 = false;
+        var _iteratorError3 = undefined;
+
+        try {
+          for (var _iterator3 = sorted[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
+            var butt = _step3.value;
+
+            if (butt.enabled && butt._isOn(coords) && butt.isDraggable) {
+              cc._isDragging = true;
+              ret = butt.drag([0, 0]);
+            }
+
+            if (ret) break;
+          }
+        } catch (err) {
+          _didIteratorError3 = true;
+          _iteratorError3 = err;
+        } finally {
+          try {
+            if (!_iteratorNormalCompletion3 && _iterator3.return != null) {
+              _iterator3.return();
+            }
+          } finally {
+            if (_didIteratorError3) {
+              throw _iteratorError3;
+            }
+          }
+        }
+      } //pressPC
+
+    }, {
+      key: "dragPC",
+      value: function dragPC(event, cc) {
+        event.preventDefault();
+        var coords = [event.clientX - cc.target.offsetLeft, event.clientY - cc.target.offsetTop],
+            rel = [],
+            ret = false;
+        /*if (((cc.useButton & Opts.UseButton.USERIGHT) !== Opts.UseButton.USERIGHT && ((("buttons" in event) && (event.buttons & 2) === 2) || (("which" in event) && event.which === 3) || (("button" in event) && event.button === 2))) || ((cc.useButton & Opts.UseButton.USERIGHT) === Opts.UseButton.USERIGHT && (cc.useButton & Opts.UseButton.USEBOTH) !== Opts.UseButton.USEBOTH && (("buttons" in event) && (event.buttons & 2) !== 2) && (("which" in event) && event.which !== 3) && (("button" in event) && event.button !== 2))) {
+            return;
+        }*/
+
+        if (cc._pressed) cc._clktime = 0;
+
+        if ((event.buttons & cc.useButton) !== event.buttons) {
+          return;
+        }
+
+        if (cc._pressed && !cc._isDragging) {
+          cc.translate((coords[0] - cc._coordinates[0]) * cc.transSpeed, (coords[1] - cc._coordinates[1]) * cc.transSpeed);
+        }
+
+        var _iteratorNormalCompletion4 = true;
+        var _didIteratorError4 = false;
+        var _iteratorError4 = undefined;
+
+        try {
+          for (var _iterator4 = cc.wgets[Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
+            var butt = _step4.value;
+
+            if (butt.enabled && butt.isDraggable && butt._dragIgnited) {
+              var by = [(coords[0] - cc._coordinates[0]) * cc.transSpeed / cc.scl[0], (coords[1] - cc._coordinates[1]) * cc.transSpeed / cc.scl[1]];
+              cc._isDragging = true;
+              ret = butt.drag(by);
+              if (ret) break;
+            }
+          }
+        } catch (err) {
+          _didIteratorError4 = true;
+          _iteratorError4 = err;
+        } finally {
+          try {
+            if (!_iteratorNormalCompletion4 && _iterator4.return != null) {
+              _iterator4.return();
+            }
+          } finally {
+            if (_didIteratorError4) {
+              throw _iteratorError4;
+            }
+          }
+        }
+
+        ret = null;
+        cc._coordinates = coords;
+        var _iteratorNormalCompletion5 = true;
+        var _didIteratorError5 = false;
+        var _iteratorError5 = undefined;
+
+        try {
+          for (var _iterator5 = cc.wgets[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
+            var _butt2 = _step5.value;
+            _butt2.enabled && _butt2._isOn(rel = coords.map(function (c, idx) {
+              return (c - cc.trans[idx]) / cc.scl[idx];
+            })) && !_butt2.pstate && (_butt2.pstate = true, ret = _butt2.focus(rel));
+            if (ret) break;
+          }
+        } catch (err) {
+          _didIteratorError5 = true;
+          _iteratorError5 = err;
+        } finally {
+          try {
+            if (!_iteratorNormalCompletion5 && _iterator5.return != null) {
+              _iterator5.return();
+            }
+          } finally {
+            if (_didIteratorError5) {
+              throw _iteratorError5;
             }
           }
         }
@@ -716,9 +849,9 @@ var CanvasControls;
                 ntouches = itouches.map(function (i, idx) {
               return i * (1 - d[idx]);
             });
+            cc.scale(d[0], d[1]);
             if (cc._zoomChanged[0]) cc.translate(ntouches[0]);
             if (cc._zoomChanged[1]) cc.translate(ntouches[1]);
-            cc.scale(d[0], d[1]);
           } else {
             //@ts-ignore
             var _inidist = dist([cc._touches[event.targetTouches[0].identifier][0], cc._touches[event.targetTouches[1].identifier][0]], [cc._touches[event.targetTouches[0].identifier][1], cc._touches[event.targetTouches[1].identifier][1]]),
@@ -760,50 +893,50 @@ var CanvasControls;
           Array.from(event.changedTouches).forEach(function (t) {
             return cc._touches[t.identifier] = [t.clientX - cc.target.offsetLeft, t.clientY - cc.target.offsetTop];
           });
-          var _iteratorNormalCompletion3 = true;
-          var _didIteratorError3 = false;
-          var _iteratorError3 = undefined;
+          var _iteratorNormalCompletion6 = true;
+          var _didIteratorError6 = false;
+          var _iteratorError6 = undefined;
 
           try {
-            for (var _iterator3 = event.changedTouches[Symbol.iterator](), _step3; !(_iteratorNormalCompletion3 = (_step3 = _iterator3.next()).done); _iteratorNormalCompletion3 = true) {
-              var touch = _step3.value;
+            for (var _iterator6 = event.changedTouches[Symbol.iterator](), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
+              var touch = _step6.value;
               coords = [(touch.clientX - cc.target.offsetLeft - cc.trans[0]) / cc.scl[0], (touch.clientY - cc.target.offsetTop - cc.trans[1]) / cc.scl[1]];
-              var _iteratorNormalCompletion4 = true;
-              var _didIteratorError4 = false;
-              var _iteratorError4 = undefined;
+              var _iteratorNormalCompletion7 = true;
+              var _didIteratorError7 = false;
+              var _iteratorError7 = undefined;
 
               try {
-                for (var _iterator4 = sorted[Symbol.iterator](), _step4; !(_iteratorNormalCompletion4 = (_step4 = _iterator4.next()).done); _iteratorNormalCompletion4 = true) {
-                  var butt = _step4.value;
+                for (var _iterator7 = sorted[Symbol.iterator](), _step7; !(_iteratorNormalCompletion7 = (_step7 = _iterator7.next()).done); _iteratorNormalCompletion7 = true) {
+                  var butt = _step7.value;
                   butt.enabled && butt._isOn(coords) && !butt.pstate && (butt.pstate = true, ret = butt.focus(coords));
                   if (ret) break;
                 }
               } catch (err) {
-                _didIteratorError4 = true;
-                _iteratorError4 = err;
+                _didIteratorError7 = true;
+                _iteratorError7 = err;
               } finally {
                 try {
-                  if (!_iteratorNormalCompletion4 && _iterator4.return != null) {
-                    _iterator4.return();
+                  if (!_iteratorNormalCompletion7 && _iterator7.return != null) {
+                    _iterator7.return();
                   }
                 } finally {
-                  if (_didIteratorError4) {
-                    throw _iteratorError4;
+                  if (_didIteratorError7) {
+                    throw _iteratorError7;
                   }
                 }
               }
             }
           } catch (err) {
-            _didIteratorError3 = true;
-            _iteratorError3 = err;
+            _didIteratorError6 = true;
+            _iteratorError6 = err;
           } finally {
             try {
-              if (!_iteratorNormalCompletion3 && _iterator3.return != null) {
-                _iterator3.return();
+              if (!_iteratorNormalCompletion6 && _iterator6.return != null) {
+                _iterator6.return();
               }
             } finally {
-              if (_didIteratorError3) {
-                throw _iteratorError3;
+              if (_didIteratorError6) {
+                throw _iteratorError6;
               }
             }
           }
@@ -830,75 +963,75 @@ var CanvasControls;
           return b._id - a._id;
         }),
             ret = false;
-        var _iteratorNormalCompletion5 = true;
-        var _didIteratorError5 = false;
-        var _iteratorError5 = undefined;
+        var _iteratorNormalCompletion8 = true;
+        var _didIteratorError8 = false;
+        var _iteratorError8 = undefined;
 
         try {
-          for (var _iterator5 = event.changedTouches[Symbol.iterator](), _step5; !(_iteratorNormalCompletion5 = (_step5 = _iterator5.next()).done); _iteratorNormalCompletion5 = true) {
-            var touch = _step5.value;
+          for (var _iterator8 = event.changedTouches[Symbol.iterator](), _step8; !(_iteratorNormalCompletion8 = (_step8 = _iterator8.next()).done); _iteratorNormalCompletion8 = true) {
+            var touch = _step8.value;
             coords = [(touch.clientX - cc.target.offsetLeft - cc.trans[0]) / cc.scl[0], (touch.clientY - cc.target.offsetTop - cc.trans[1]) / cc.scl[1]];
-            var _iteratorNormalCompletion7 = true;
-            var _didIteratorError7 = false;
-            var _iteratorError7 = undefined;
+            var _iteratorNormalCompletion10 = true;
+            var _didIteratorError10 = false;
+            var _iteratorError10 = undefined;
 
             try {
-              for (var _iterator7 = sorted[Symbol.iterator](), _step7; !(_iteratorNormalCompletion7 = (_step7 = _iterator7.next()).done); _iteratorNormalCompletion7 = true) {
-                var _butt = _step7.value;
-                _butt.enabled && _butt._isOn(coords);
+              for (var _iterator10 = sorted[Symbol.iterator](), _step10; !(_iteratorNormalCompletion10 = (_step10 = _iterator10.next()).done); _iteratorNormalCompletion10 = true) {
+                var _butt3 = _step10.value;
+                _butt3.enabled && _butt3._isOn(coords);
               }
             } catch (err) {
-              _didIteratorError7 = true;
-              _iteratorError7 = err;
+              _didIteratorError10 = true;
+              _iteratorError10 = err;
             } finally {
               try {
-                if (!_iteratorNormalCompletion7 && _iterator7.return != null) {
-                  _iterator7.return();
+                if (!_iteratorNormalCompletion10 && _iterator10.return != null) {
+                  _iterator10.return();
                 }
               } finally {
-                if (_didIteratorError7) {
-                  throw _iteratorError7;
+                if (_didIteratorError10) {
+                  throw _iteratorError10;
                 }
               }
             }
           }
         } catch (err) {
-          _didIteratorError5 = true;
-          _iteratorError5 = err;
+          _didIteratorError8 = true;
+          _iteratorError8 = err;
         } finally {
           try {
-            if (!_iteratorNormalCompletion5 && _iterator5.return != null) {
-              _iterator5.return();
+            if (!_iteratorNormalCompletion8 && _iterator8.return != null) {
+              _iterator8.return();
             }
           } finally {
-            if (_didIteratorError5) {
-              throw _iteratorError5;
+            if (_didIteratorError8) {
+              throw _iteratorError8;
             }
           }
         }
 
         if (cc._touches.length === 1 && Date.now() - cc._clktime <= cc.clickSensitivity) {
-          var _iteratorNormalCompletion6 = true;
-          var _didIteratorError6 = false;
-          var _iteratorError6 = undefined;
+          var _iteratorNormalCompletion9 = true;
+          var _didIteratorError9 = false;
+          var _iteratorError9 = undefined;
 
           try {
-            for (var _iterator6 = sorted[Symbol.iterator](), _step6; !(_iteratorNormalCompletion6 = (_step6 = _iterator6.next()).done); _iteratorNormalCompletion6 = true) {
-              var butt = _step6.value;
+            for (var _iterator9 = sorted[Symbol.iterator](), _step9; !(_iteratorNormalCompletion9 = (_step9 = _iterator9.next()).done); _iteratorNormalCompletion9 = true) {
+              var butt = _step9.value;
               butt.enabled && butt._isOn(coords) && (ret = butt.click(coords, event));
               if (ret) break;
             }
           } catch (err) {
-            _didIteratorError6 = true;
-            _iteratorError6 = err;
+            _didIteratorError9 = true;
+            _iteratorError9 = err;
           } finally {
             try {
-              if (!_iteratorNormalCompletion6 && _iterator6.return != null) {
-                _iterator6.return();
+              if (!_iteratorNormalCompletion9 && _iterator9.return != null) {
+                _iterator9.return();
               }
             } finally {
-              if (_didIteratorError6) {
-                throw _iteratorError6;
+              if (_didIteratorError9) {
+                throw _iteratorError9;
               }
             }
           }
@@ -995,6 +1128,7 @@ var CanvasControls;
     tiltEnabled: false,
     eventsReversed: false,
     dynamicTransBounds: true,
+    _isDragging: false,
     useButton: 1,
     scaleMode: 1,
     transSpeed: 1,
@@ -1045,6 +1179,8 @@ var CanvasControls;
       key: "bindArrows",
       //arrowMove
       value: function bindArrows() {
+        if (!this.element["_cc_"]) throw Errors.ENOCCANV;
+
         for (var i in this.arrowBindings) {
           this.registerKeydown(i, KeyBind.arrowMove.bind(this));
           this.registerKeyup(i, KeyBind.arrowMove.bind(this));
@@ -1200,6 +1336,9 @@ var CanvasControls;
       value: function arrowMove(event, type) {
         if (type === "keydown") {
           event.target["_cc_"].translate(this.arrowMoveSpeed * this.arrowBindings[event.key][0], this.arrowMoveSpeed * this.arrowBindings[event.key][1]);
+
+          event.target["_cc_"]._forceDragPC();
+
           if (this.arrowMoveSpeedupEnabled) this.arrowMoveSpeed = bound(this.arrowMoveSpeed + this.arrowMoveSpeedup, 0, this.arrowMoveSpeedMax);
         } else {
           this.arrowMoveSpeed = KeyBind.arrowMoveSpeed;
@@ -1250,6 +1389,8 @@ var CanvasControls;
       this.enabled = true;
       this.pstate = false;
       this.position = 2;
+      this.isDraggable = false;
+      this._dragIgnited = false;
       inherit(opts, CanvasButton.defaultOpts);
 
       if ([opts.x, opts.y, opts.dx, opts.dy, opts.position, opts.index].some(function (num) {
@@ -1265,6 +1406,7 @@ var CanvasControls;
       this.position = opts.position | 0;
       this.index = opts.index | 0;
       this.enabled = !!opts.enabled;
+      this.isDraggable = !!opts.isDraggable;
       this._id = CanvasButton._idcntr++;
     } //ctor
     //@Override
@@ -1304,6 +1446,23 @@ var CanvasControls;
       value: function click() {
         return true;
       } //click
+      //@Override
+
+      /**
+       * @description OnDrag event (blocking).
+       * @author V. H.
+       * @date 2019-06-02
+       * @param {[number, number]} by - coordinates
+       * @returns {boolean}
+       * @memberof CanvasButton
+       */
+
+    }, {
+      key: "drag",
+      value: function drag(by) {
+        this._dragIgnited = true;
+        return true;
+      } //drag
 
       /**
        * Checks if pointer is above the widget
@@ -1350,6 +1509,7 @@ var CanvasControls;
     index: -1,
     pstate: false,
     enabled: true,
+    isDraggable: false,
     position: 2,
     parent: new ControllableCanvas()
   };
@@ -1512,28 +1672,28 @@ var CanvasControls;
       value: function images(urlist, onload) {
         var autobind = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : true;
         var imglist = [];
-        var _iteratorNormalCompletion8 = true;
-        var _didIteratorError8 = false;
-        var _iteratorError8 = undefined;
+        var _iteratorNormalCompletion11 = true;
+        var _didIteratorError11 = false;
+        var _iteratorError11 = undefined;
 
         try {
-          for (var _iterator8 = urlist[Symbol.iterator](), _step8; !(_iteratorNormalCompletion8 = (_step8 = _iterator8.next()).done); _iteratorNormalCompletion8 = true) {
-            var url = _step8.value;
+          for (var _iterator11 = urlist[Symbol.iterator](), _step11; !(_iteratorNormalCompletion11 = (_step11 = _iterator11.next()).done); _iteratorNormalCompletion11 = true) {
+            var url = _step11.value;
             var img = new Image();
             img.src = url;
             imglist.push(img);
           }
         } catch (err) {
-          _didIteratorError8 = true;
-          _iteratorError8 = err;
+          _didIteratorError11 = true;
+          _iteratorError11 = err;
         } finally {
           try {
-            if (!_iteratorNormalCompletion8 && _iterator8.return != null) {
-              _iterator8.return();
+            if (!_iteratorNormalCompletion11 && _iterator11.return != null) {
+              _iterator11.return();
             }
           } finally {
-            if (_didIteratorError8) {
-              throw _iteratorError8;
+            if (_didIteratorError11) {
+              throw _iteratorError11;
             }
           }
         }
@@ -1556,28 +1716,28 @@ var CanvasControls;
       value: function audios(urlist, onload) {
         var autobind = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : true;
         var audiolist = [];
-        var _iteratorNormalCompletion9 = true;
-        var _didIteratorError9 = false;
-        var _iteratorError9 = undefined;
+        var _iteratorNormalCompletion12 = true;
+        var _didIteratorError12 = false;
+        var _iteratorError12 = undefined;
 
         try {
-          for (var _iterator9 = urlist[Symbol.iterator](), _step9; !(_iteratorNormalCompletion9 = (_step9 = _iterator9.next()).done); _iteratorNormalCompletion9 = true) {
-            var url = _step9.value;
+          for (var _iterator12 = urlist[Symbol.iterator](), _step12; !(_iteratorNormalCompletion12 = (_step12 = _iterator12.next()).done); _iteratorNormalCompletion12 = true) {
+            var url = _step12.value;
             var audio = new Audio(url);
             audio.load();
             audiolist.push(audio);
           }
         } catch (err) {
-          _didIteratorError9 = true;
-          _iteratorError9 = err;
+          _didIteratorError12 = true;
+          _iteratorError12 = err;
         } finally {
           try {
-            if (!_iteratorNormalCompletion9 && _iterator9.return != null) {
-              _iterator9.return();
+            if (!_iteratorNormalCompletion12 && _iterator12.return != null) {
+              _iterator12.return();
             }
           } finally {
-            if (_didIteratorError9) {
-              throw _iteratorError9;
+            if (_didIteratorError12) {
+              throw _iteratorError12;
             }
           }
         }

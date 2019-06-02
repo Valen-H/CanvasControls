@@ -7,6 +7,10 @@
  * atan2(pny - pcy, pnx - pcx) - atan2(ppy - pcy, ppx - pcx)
  */
 
+/**
+ * @todo Widget Dragging?
+ */
+
 
 /*
  * centered zoom breaks with transBounds - normal/acceptable
@@ -135,7 +139,7 @@ export module CanvasControls {
 		 * @member {Set<CanvasButton>} wgets - Canvas widgets
 		 */
 		export declare interface ControllableCanvasOptions {
-			target: HTMLCanvasElement;
+			readonly target: HTMLCanvasElement;
 			trans?: number[];
 			scl?: number[];
 			dragEnabled?: boolean;
@@ -206,6 +210,7 @@ export module CanvasControls {
 			parent: ControllableCanvas;
 			enabled?: boolean;
 			position?: number;
+			isDraggable?: boolean;
 			[prop: string]: any;
 		} //CanvasButtonOptions
 
@@ -272,8 +277,8 @@ export module CanvasControls {
 	 * @prop {Set<CanvasButton>} wgets - Canvas widgets
 	 */
 	export class ControllableCanvas implements Opts.ControllableCanvasOptions {
-		target: HTMLCanvasElement;
-		context: CanvasRenderingContext2D;
+		readonly target: HTMLCanvasElement;
+		readonly context: CanvasRenderingContext2D;
 		trans: number[] = [0, 0];
 		scl: number[] = [1, 1];
 		pin: number[];  //OBS
@@ -298,6 +303,7 @@ export module CanvasControls {
 		private _zoomChanged: boolean[] = [false, false];
 		private _mobile: boolean = false;
 		private _pressed: boolean = false;
+		private _isDragging: boolean = false;
 		private _clktime: number = 0;
 		_adapts: Opts.ControllableCanvasAdapters;
 		_coordinates: number[] = [];
@@ -322,6 +328,7 @@ export module CanvasControls {
 			tiltEnabled: false,
 			eventsReversed: false,
 			dynamicTransBounds: true,
+			_isDragging: false,
 			useButton: 1,
 			scaleMode: 1,
 			transSpeed: 1,
@@ -346,7 +353,7 @@ export module CanvasControls {
 		 * @param {Opts.ControllableCanvasOptions} opts?=ControllableCanvas.defaultOpts - ControllableCanvas Options
 		 * @constructor
 		 */
-		constructor(opts: Opts.ControllableCanvasOptions = ControllableCanvas.defaultOpts) {
+		public constructor(opts: Opts.ControllableCanvasOptions = ControllableCanvas.defaultOpts) {
 			inherit(opts, ControllableCanvas.defaultOpts);
 
 			if (!(opts.target instanceof HTMLCanvasElement)) {
@@ -440,6 +447,7 @@ export module CanvasControls {
 			} else {
 				throw Errors.EISALR;
 			}
+
 			return <CanvasButton>data;
 		} //addWidget
 
@@ -507,10 +515,7 @@ export module CanvasControls {
 		private _pcAdapt(): void {
 			if (!(this._adapts.drag || this._adapts.click) && this.dragEnabled) {
 				this.target.addEventListener("mousemove", this._adapts.drag = (e: MouseEvent): void => ControllableCanvas.dragPC(e, this));
-				this.target.addEventListener("mousedown", (e?: MouseEvent): void => {
-					this._clktime = Date.now();
-					this._pressed = true;
-				});
+				this.target.addEventListener("mousedown", (e?: MouseEvent): void => ControllableCanvas.pressPC(e, this));
 				this.target.addEventListener("mouseup", this._adapts.click = (e?: MouseEvent): void => ControllableCanvas.clickPC(e, this));
 				//@ts-ignore
 				this.target.addEventListener("mouseout", (e?: MouseEvent): void => this._adapts.click(e));
@@ -525,6 +530,8 @@ export module CanvasControls {
 		} //_pcAdapt
 
 		private static clickPC(event: MouseEvent, cc: ControllableCanvas): void {
+			event.preventDefault();
+
 			if (Date.now() - cc._clktime <= cc.clickSensitivity) {
 				let coords: number[] = [(event.clientX - cc.target.offsetLeft - cc.trans[0]) / cc.scl[0], (event.clientY - cc.target.offsetTop - cc.trans[1]) / cc.scl[1]],
 					sorted = Array.from(cc.wgets.entries()).map((s: CanvasButton[]) => s[1]).sort((a: CanvasButton, b: CanvasButton) => b._id - a._id),
@@ -535,32 +542,74 @@ export module CanvasControls {
 					if (ret) break;
 				}
 			}
+
+			let drags = Array.from(cc.wgets.values()).filter((butt: CanvasButton): boolean => butt._dragIgnited);
+
+			for (let butt of drags) {
+				butt.drag([ 0, 0 ]);
+				butt._dragIgnited = false;
+				cc._isDragging = false;
+			}
+
 			cc._clktime = 0;
 			cc._pressed = false;
 		} //clickPC
+
+		private static pressPC(event: MouseEvent, cc: ControllableCanvas): void {
+			event.preventDefault();
+
+			cc._clktime = Date.now();
+			cc._pressed = true;
+
+			let coords: number[] = [(event.clientX - cc.target.offsetLeft - cc.trans[0]) / cc.scl[0], (event.clientY - cc.target.offsetTop - cc.trans[1]) / cc.scl[1]],
+				sorted = Array.from(cc.wgets.entries()).map((s: CanvasButton[]) => s[1]).sort((a: CanvasButton, b: CanvasButton) => b._id - a._id),
+				ret: boolean = false;
+
+			for (let butt of sorted) {
+				if (butt.enabled && butt._isOn(coords) && butt.isDraggable) {
+					cc._isDragging = true;
+					ret = butt.drag([0, 0]);
+				}
+
+				if (ret) break;
+			}
+		} //pressPC
 
 		private static dragPC(event: MouseEvent, cc: ControllableCanvas): void {
 			event.preventDefault();
 
 			let coords: number[] = [event.clientX - cc.target.offsetLeft, event.clientY - cc.target.offsetTop],
-				rel: number[] = [],
+				rel: number[] = [ ],
 				ret: boolean = false;
-
-			cc._coordinates = coords;
-
+				
 			/*if (((cc.useButton & Opts.UseButton.USERIGHT) !== Opts.UseButton.USERIGHT && ((("buttons" in event) && (event.buttons & 2) === 2) || (("which" in event) && event.which === 3) || (("button" in event) && event.button === 2))) || ((cc.useButton & Opts.UseButton.USERIGHT) === Opts.UseButton.USERIGHT && (cc.useButton & Opts.UseButton.USEBOTH) !== Opts.UseButton.USEBOTH && (("buttons" in event) && (event.buttons & 2) !== 2) && (("which" in event) && event.which !== 3) && (("button" in event) && event.button !== 2))) {
 				return;
 			}*/
 
 			if (cc._pressed) cc._clktime = 0;
-
+			
 			if ((event.buttons & cc.useButton) !== event.buttons) {
 				return;
 			}
-
-			if (cc._pressed) {
-				cc.translate(event.movementX * cc.transSpeed, event.movementY * cc.transSpeed);
+			
+			if (cc._pressed && !cc._isDragging) {
+				cc.translate((coords[0] - cc._coordinates[0]) * cc.transSpeed, (coords[1] - cc._coordinates[1]) * cc.transSpeed);
 			}
+			
+			for (let butt of cc.wgets) {
+				if (butt.enabled && butt.isDraggable && butt._dragIgnited) {
+					let by: [number, number] = [(coords[0] - cc._coordinates[0]) * cc.transSpeed / cc.scl[0], (coords[1] - cc._coordinates[1]) * cc.transSpeed / cc.scl[1]];
+					
+					cc._isDragging = true;
+					
+					ret = butt.drag(by);
+					
+					if (ret) break;
+				}
+			}
+			
+			ret = null;
+			cc._coordinates = coords;
 
 			for (let butt of cc.wgets) {
 				butt.enabled && butt._isOn(rel = coords.map((c: number, idx: number) => (c - cc.trans[idx]) / cc.scl[idx])) && !butt.pstate && (butt.pstate = true, ret = butt.focus(rel));
@@ -709,7 +758,7 @@ export module CanvasControls {
 		} //wheel
 
 
-		_forceDragPC(): void {
+		_forceDragPC(): void {  //OBS
 			let fake: MouseEvent = new MouseEvent("mousemove", {
 				view: window,
 				bubbles: true,
@@ -730,7 +779,7 @@ export module CanvasControls {
 		 * @method
 		 * @returns {number[]}
 		 */
-		getCoords(): number[] {
+		getCoords(): number[] {  //OBS
 			return this._coordinates.map((c: number, idx: number): number => (c - this.trans[idx]) / this.scl[idx]);
 		} //getCoords
 
@@ -780,7 +829,7 @@ export module CanvasControls {
 		press: Key[] = [];
 		down: Key[] = [];
 		up: Key[] = [];
-		element: HTMLElement;
+		readonly element: HTMLElement;
 		_bound: boolean = false;
 		arrowMoveSpeed: number;
 		arrowMoveSpeedup: number;
@@ -788,7 +837,7 @@ export module CanvasControls {
 		arrowMoveSpeedupEnabled: boolean = true;
 		arrowBindings: {
 			[key: string]: number[];
-		} = {};
+		} = { };
 
 		static _idcntr = 0;
 		static arrowMoveSpeed: number = 5;
@@ -937,6 +986,8 @@ export module CanvasControls {
 		enabled: boolean = true;
 		pstate: boolean = false;
 		position: number = 2;
+		isDraggable: boolean = false;
+		_dragIgnited: boolean = false;
 
 		static sensitivity: number = .3;
 		private static _idcntr: number = 0;
@@ -953,6 +1004,7 @@ export module CanvasControls {
 			index: -1,
 			pstate: false,
 			enabled: true,
+			isDraggable: false,
 			position: 2,
 			parent: new ControllableCanvas
 		};
@@ -971,6 +1023,7 @@ export module CanvasControls {
 			this.position = opts.position | 0;
 			this.index = opts.index | 0;
 			this.enabled = !!opts.enabled;
+			this.isDraggable = !!opts.isDraggable;
 			this._id = CanvasButton._idcntr++;
 		} //ctor
 
@@ -998,6 +1051,21 @@ export module CanvasControls {
 		click(...any: any[]): boolean {
 			return true;
 		} //click
+
+		//@Override
+		/**
+		 * @description OnDrag event (blocking).
+		 * @author V. H.
+		 * @date 2019-06-02
+		 * @param {[number, number]} by - coordinates
+		 * @returns {boolean}
+		 * @memberof CanvasButton
+		 */
+		drag(by: [number, number]): boolean {
+			this._dragIgnited = true;
+
+			return true;
+		} //drag
 
 		/**
 		 * Checks if pointer is above the widget
